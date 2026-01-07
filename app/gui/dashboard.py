@@ -128,6 +128,10 @@ class Dashboard(ctk.CTkFrame):
         self.show_all_switch = ctk.CTkSwitch(self.top_frame, text="Show All", variable=self.show_all_var, command=self.refresh_list)
         self.show_all_switch.pack(side="left", padx=(0, 20))
 
+        # Reload Button
+        self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
+        self.reload_btn.pack(side="left")
+
         # Hidden sort variable to maintain logic
         self.sort_var = ctk.StringVar(value="Date")
 
@@ -279,6 +283,47 @@ class Dashboard(ctk.CTkFrame):
     def on_open_settings(self):
         from .setup_wizard import SetupWizard
         dialog = SetupWizard(self.winfo_toplevel(), self.refresh_data)
+
+    def on_reload(self):
+        """Scans the root folder for any new directories and removes records for missing folders."""
+        from ..core.config_mgr import get_active_root
+        from ..core.file_ops import scan_for_existing_applications
+        from ..core.database import add_application, application_exists, get_applications, delete_application
+        
+        root_path = get_active_root()
+        if not root_path:
+            return
+
+        # 1. Check for missing folders and remove from DB
+        # Fetch all from DB (no filters) to verify existence
+        db_apps = get_applications()
+        removed_count = 0
+        for app in db_apps:
+            if not os.path.exists(app['folder_path']):
+                delete_application(app['id'])
+                removed_count += 1
+
+        # 2. Check for new folders on disk and add to DB
+        found_apps = scan_for_existing_applications(root_path)
+        added_count = 0
+        for app in found_apps:
+            if not application_exists(app['company'], app['role']):
+                add_application(app['company'], app['role'], app['path'])
+                added_count += 1
+        
+        # Refresh the UI
+        self.refresh_stats()
+        self.refresh_list()
+        
+        msg = "Scan Complete!\n"
+        if added_count > 0 or removed_count > 0:
+            if added_count > 0:
+                msg += f"- Imported {added_count} new applications\n"
+            if removed_count > 0:
+                msg += f"- Removed {removed_count} broken records (folders missing)\n"
+            messagebox.showinfo("Scan Results", msg)
+        else:
+            messagebox.showinfo("Scan Results", "Everything is already in sync!")
 
     def save_new_application(self, company, role):
         try:

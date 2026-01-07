@@ -62,8 +62,10 @@ JALM implements **Workspace Isolation**. Each "Applications Root" contains its o
 ### File Operations (`file_ops.py`)
 Contains the logic for:
 - Creating hierarchical folder structures (`Root/Company/Role`).
-- Cloning and renaming template files using `shutil`.
-- Scanning the filesystem for existing `Company/Role` directories to facilitate migration.
+- Cloning and renaming template files using the format: `Binke Xu_[CV/Cover Letter]_[Role Name].docx`.
+- Scanning and synchronizing the filesystem (`on_reload`):
+    - **Inbound**: Automatically imports newly discovered `Company/Role` folders.
+    - **Outbound**: Purges database records for applications whose folders no longer exist on disk.
 
 ### Performance Optimizations
 - **Virtual Rendering & Limit**: Shows only the 20 most recent applications by default. The "Show All" toggle enables a chunk-based renderer (`_render_chunk`) that populates the list in small batches (30 items at 20ms intervals) to maintain UI responsiveness.
@@ -81,5 +83,6 @@ The application is built using `CustomTkinter`, a wrapper around `tkinter` that 
 
 ## 🛠️ Error Handling
 
-- **Folder Integrity**: The `AppListItem` checks for the existence of the `folder_path` on every refresh. If the folder is moved or deleted outside JALM, the "Open Folder" button is replaced with a "Path Missing" warning.
-- **Database Safety**: Uses SQLite's `ON DELETE CASCADE` to ensure that deleting an application (future feature) would remove related interviews.
+- **Folder Integrity**: The `AppListItem` provides visual feedback (red text) if a folder is missing.
+- **Self-Cleaning Database**: The "Scan & Reload" feature allows users to prune the database of broken records where the physical folder has been removed or renamed outside the application.
+- **Database Safety**: Uses SQLite's `ON DELETE CASCADE` to ensure that removing a broken application record also cleans up its associated interview logs.

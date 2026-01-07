@@ -163,6 +163,16 @@ def count_applications_with_name(company, role):
     conn.close()
     return count
 
+def delete_application(app_id):
+    """Deletes an application record from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Enable foreign keys for cascade delete
+    cursor.execute("PRAGMA foreign_keys = ON")
+    cursor.execute('DELETE FROM applications WHERE id = ?', (app_id,))
+    conn.commit()
+    conn.close()
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")

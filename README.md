@@ -11,7 +11,8 @@ JALM is a powerful desktop application designed to streamline and automate your 
     │   ├── jalm_apps.db        # Workspace-specific SQLite database
     │   └── [Company Folders]/  # Your application folders
     ```
-- **Automated Organization**: Automatically creates folders for each application and populates them with standardized CV and Cover Letter templates.
+- **Automated Organization**: Automatically creates folders for each application and populates them with standardized CV and Cover Letter templates using a professional format: `Binke Xu_CV_[Role Name].docx`.
+- **Scan & Reload (Two-Way Sync)**: Synchronizes your database with your local files. It automatically imports new folders found on disk and cleans up database entries for folders that have been moved or deleted.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
@@ -48,6 +49,7 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 
 ### Managing Applications
 - **Search**: Enter text in the search bar and click **Search** or press **Enter** to filter.
+- **Scan & Reload**: Click this to sync your dashboard with your folder structure. It imports new folders and removes "broken" links for folders you've deleted manually.
 - **List Limit**: By default, JALM shows the 20 most recent applications. Toggle **Show All** to view your entire history.
 - **Sorting**: Click the **Company** or **Date** headers to toggle sort direction.
 - **Add Application**: Click `+ Add Application`. JALM automatically appends an index if a duplicate role exists in the same company.

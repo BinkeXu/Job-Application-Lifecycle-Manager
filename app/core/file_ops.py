@@ -30,11 +30,11 @@ def create_application_folder(company, role):
 
     # Copy and rename templates
     if cv_template.exists():
-        cv_dest = app_folder / f"{company_clean}_{role_clean}_CV{cv_template.suffix}"
+        cv_dest = app_folder / f"Binke Xu_CV_{role_clean}{cv_template.suffix}"
         shutil.copy2(cv_template, cv_dest)
     
     if cover_letter_template.exists():
-        cl_dest = app_folder / f"{company_clean}_{role_clean}_Cover_Letter{cover_letter_template.suffix}"
+        cl_dest = app_folder / f"Binke Xu_Cover Letter_{role_clean}{cover_letter_template.suffix}"
         shutil.copy2(cover_letter_template, cl_dest)
 
     return str(app_folder.absolute())

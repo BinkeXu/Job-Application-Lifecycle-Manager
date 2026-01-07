@@ -1,8 +1,13 @@
 # Local Settings and Data
 config.json
 applications.db
+jalm_config.json
+jalm_apps.db
 
-# Python
+# Build files
+build/
+dist/
+*.spec
 __pycache__/
 *.py[cod]
 *$py.class
