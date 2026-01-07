@@ -1,0 +1,89 @@
+### **Project Plan: Job Application Lifecycle Manager (JALM)**
+
+This document outlines the technical requirements for a desktop application designed to automate job application folder creation, template management, and interview tracking.
+
+#### **1. System Architecture**
+
+* **Language:** Python
+* **GUI Framework:** `CustomTkinter` (for a modern UI) or `PyQt6`.
+* **Data Persistence:** * `config.json`: Stores user paths (Root folder, CV/CL templates).
+* `applications.db`: SQLite database for tracking metadata, statuses, and interview logs.
+
+
+* **File Operations:** `pathlib` for cross-platform path handling; `shutil` for file cloning.
+
+#### **2. Data Schema (SQLite)**
+
+**Table: `applications**`
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | INTEGER | Primary Key. |
+| `company_name` | TEXT | Name of the company. |
+| `role_name` | TEXT | Specific job title. |
+| `folder_path` | TEXT | Absolute path to the role folder. |
+| `status` | TEXT | Applied, Interviewing, Rejected, Offer, Ghosted. |
+| `created_at` | DATETIME | Date of folder creation. |
+
+**Table: `interviews**`
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | INTEGER | Primary Key. |
+| `app_id` | INTEGER | Foreign Key linking to `applications.id`. |
+| `sequence` | INTEGER | The interview number (1, 2, 3, etc.). |
+| `notes` | TEXT | Detailed notes/feedback. |
+| `date` | DATETIME | Date of the interview. |
+
+#### **3. Functional Modules**
+
+**Module A: Initialization & Setup**
+
+* **Check Config:** On startup, verify `config.json` exists.
+* **Setup Wizard:** If not found, launch a modal to select:
+1. `Root_Directory` (Where applications are stored).
+2. `CV_Template_Path` (Source .docx).
+3. `CL_Template_Path` (Source .docx).
+
+
+
+**Module B: Application Creator**
+
+1. **Input:** User enters `Company` and `Role`.
+2. **Logic:** * Create directory: `Root/Company/Role`.
+* Copy templates to directory.
+* Rename files to `[Company]_[Role]_CV.docx`.
+
+
+3. **DB Update:** Insert a new record into the `applications` table.
+4. **System Action:** Open the folder using `os.startfile` (Windows) or `subprocess.run(["open", path])` (macOS).
+
+**Module C: Search & Tracking**
+
+* **Search Engine:** A search bar filtering a `Listbox` or `ScrollableFrame` based on `company_name` or `role_name`.
+* **Dashboard:** aggregate `SELECT COUNT(*)` to show total applications and unique companies.
+
+**Module D: Interview Manager**
+
+* **Incremental Logic:** When "Add Interview" is clicked:
+* Count existing rows in `interviews` for that `app_id`.
+* Label the new entry as `Interview N+1`.
+
+
+* **Storage:** Save notes immediately to the SQLite DB.
+
+#### **4. Development Roadmap**
+
+| Phase | Milestone | Key Tasks |
+| --- | --- | --- |
+| **1** | **Core Logic** | Script for folder creation, file copying, and SQLite initialization. |
+| **2** | **Setup GUI** | Create the first-time config modal and directory pickers. |
+| **3** | **Dashboard UI** | Implement the main list view, search bar, and statistics cards. |
+| **4** | **Interview Log** | Build the nested UI for adding and viewing sequential interview notes. |
+| **5** | **Polish** | Add error handling (e.g., folder already exists) and "Open Folder" shortcuts. |
+
+#### **5. Technical Constraints**
+
+* **File Integrity:** If a user manually deletes a folder, the program should flag the DB entry as "Path Not Found."
+* **Concurrency:** SQLite handles single-user writes well, but ensures the DB connection is closed properly on app exit.
+* **Templates:** Support `.docx` primarily, as `.pdf` is usually the export format.
+
+---
