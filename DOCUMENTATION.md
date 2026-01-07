@@ -7,23 +7,19 @@ This document provides a detailed overview of the Job Application Lifecycle Mana
 JALM follows a modular Python structure:
 
 ```text
-Job Application Manager/
+Job Application Lifecycle Manager/
 ├── app/
 │   ├── core/           # Business logic and data management
-│   │   ├── config_mgr.py
-│   │   ├── database.py
-│   │   └── file_ops.py
 │   ├── gui/            # UI components and windows
-│   │   ├── dashboard.py
-│   │   ├── setup_wizard.py
-│   │   ├── add_app_dialog.py
-│   │   └── interview_manager.py
 │   ├── utils/          # Helper utilities
-│   │   └── tooltip.py
-│   └── models/         # (Future growth for ORM/Dataclasses)
+│   └── models/         # Data models
 ├── main.py             # Entry point
-├── config.json         # User settings (Generated)
-└── applications.db     # SQLite database (Generated)
+└── config.json         # Global settings (tracks active root)
+
+[Your Root Directory]/
+├── jalm_config.json    # Workspace-specific templates (CV/Cover Letter)
+├── jalm_apps.db        # Workspace-specific SQLite database
+└── [Company Folders]/  # Your application folders
 ```
 
 ## 🗄️ Database Schema
@@ -56,7 +52,12 @@ Stores notes related to specific interview rounds.
 ## ⚙️ Core Modules
 
 ### Configuration Management (`config_mgr.py`)
-Handles loading and saving user paths (root directory and templates) from `config.json`. It provides a validation check (`is_config_complete`) used at startup to determine if the Setup Wizard is needed.
+JALM uses a two-tier configuration system:
+- **Global Config (`config.json`)**: Stored in the app root, it only tracks the `active_root` path.
+- **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
+
+### Database Management (`database.py`)
+JALM implements **Workspace Isolation**. Each "Applications Root" contains its own `jalm_apps.db`. Switching the root directory in the UI dynamically rebinds the database connection to the new workspace's DB file.
 
 ### File Operations (`file_ops.py`)
 Contains the logic for:
@@ -65,8 +66,10 @@ Contains the logic for:
 - Scanning the filesystem for existing `Company/Role` directories to facilitate migration.
 
 ### Performance Optimizations
-- **Debouncing**: Implemented in `Dashboard` using `widget.after()`. Rapid typing in the search bar won't trigger database queries until a 300ms pause is detected.
-- **Batch Rendering**: The `Dashboard` renders application items in chunks of 15 using a recursive `_render_chunk` call. This prevents the Main Loop from locking up when displaying hundreds of rows.
+- **Virtual Rendering & Limit**: Shows only the 20 most recent applications by default. The "Show All" toggle enables a chunk-based renderer (`_render_chunk`) that populates the list in small batches (30 items at 20ms intervals) to maintain UI responsiveness.
+- **Search Optimization**: Queries are triggered manually via the "Search" button or "Enter" key, reducing unnecessary database load compared to live-filtering.
+- **Interactive Headers**: Dynamic sorting with visual indicators (↑/↓) using SQL `ORDER BY` on indexed columns.
+- **Throttled Resize**: Window `<Configure>` events are throttled, pausing rendering during active dragging to eliminate lag.
 
 ## 🎨 UI Framework
 

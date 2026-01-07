@@ -38,6 +38,10 @@ class AddAppDialog(ctk.CTkToplevel):
         self.save_btn = ctk.CTkButton(self, text="Create Application", command=self.on_save)
         self.save_btn.grid(row=3, column=0, pady=30)
 
+        # Bind Enter key to submit
+        self.company_entry.bind("<Return>", lambda e: self.on_save())
+        self.role_entry.bind("<Return>", lambda e: self.on_save())
+
     def on_save(self):
         company = self.company_entry.get().strip()
         role = self.role_entry.get().strip()

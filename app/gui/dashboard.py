@@ -3,7 +3,6 @@ import os
 from .add_app_dialog import AddAppDialog
 from ..core.database import add_application, get_applications, get_stats, update_application_status
 from ..core.file_ops import create_application_folder, open_folder
-from ..utils.tooltip import ToolTip
 from tkinter import messagebox
 
 class StatsCard(ctk.CTkFrame):
@@ -21,30 +20,20 @@ class StatsCard(ctk.CTkFrame):
 
 class AppListItem(ctk.CTkFrame):
     def __init__(self, parent, app_data, on_refresh):
-        super().__init__(parent)
+        # Optimized: Flat widgets (no corner radius) for fastest rendering
+        super().__init__(parent, height=50, corner_radius=0) 
         self.app_data = app_data
         self.on_refresh = on_refresh
-        
         self.setup_ui()
 
     def setup_ui(self):
-        # Truncate text for display
-        display_company = self.app_data['company_name']
-        if len(display_company) > 25:
-            display_company = display_company[:22] + "..."
-            
-        display_role = self.app_data['role_name']
-        if len(display_role) > 25:
-            display_role = display_role[:22] + "..."
-
-        # Data columns
-        company_label = ctk.CTkLabel(self, text=display_company, width=200, anchor="w")
-        company_label.pack(side="left", padx=10)
-        ToolTip(company_label, self.app_data['company_name'])
+        # Use single formatted label instead of multiple labels with tooltips
+        company = self.app_data['company_name'][:25] + ("..." if len(self.app_data['company_name']) > 25 else "")
+        role = self.app_data['role_name'][:25] + ("..." if len(self.app_data['role_name']) > 25 else "")
         
-        role_label = ctk.CTkLabel(self, text=display_role, width=200, anchor="w")
-        role_label.pack(side="left", padx=10)
-        ToolTip(role_label, self.app_data['role_name'])
+        # Company and Role in single labels
+        ctk.CTkLabel(self, text=company, width=200, anchor="w").pack(side="left", padx=10)
+        ctk.CTkLabel(self, text=role, width=200, anchor="w").pack(side="left", padx=10)
         
         # Status dropdown
         self.status_var = ctk.StringVar(value=self.app_data['status'])
@@ -55,22 +44,27 @@ class AppListItem(ctk.CTkFrame):
                                            width=120)
         self.status_menu.pack(side="left", padx=10)
         
-        date_str = self.app_data['created_at'].split(' ')[0] # Just date part
+        date_str = self.app_data['created_at'].split(' ')[0]
         ctk.CTkLabel(self, text=date_str, width=120, anchor="w").pack(side="left", padx=10)
 
-        # Actions
-        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.pack(side="right", padx=10)
-        
-        self.open_btn = ctk.CTkButton(btn_frame, text="Open Folder", width=100, command=self.on_open_folder)
-        self.open_btn.pack(side="right", padx=5)
-
-        self.interview_btn = ctk.CTkButton(btn_frame, text="Interviews", width=100, command=self.on_open_interviews)
+        # Actions - Pack directly to the right
+        self.interview_btn = ctk.CTkButton(self, text="Interviews", width=90, command=self.on_open_interviews)
         self.interview_btn.pack(side="right", padx=5)
 
-        # Folder check
-        if not os.path.exists(self.app_data['folder_path']):
-            self.open_btn.configure(state="disabled", text="Path Missing", fg_color="red")
+        # Folder check and binding
+        exists = os.path.exists(self.app_data['folder_path'])
+        
+        # Bind double click to open folder
+        self.bind("<Double-1>", lambda e: self.on_open_folder())
+        for child in self.winfo_children():
+            if not isinstance(child, (ctk.CTkButton, ctk.CTkOptionMenu)):
+                child.bind("<Double-1>", lambda e: self.on_open_folder())
+
+        if not exists:
+            # Change color of labels if path is missing
+            for child in self.winfo_children():
+                if isinstance(child, ctk.CTkLabel):
+                    child.configure(text_color="red")
 
     def on_status_change(self, new_status):
         update_application_status(self.app_data['id'], new_status)
@@ -94,10 +88,22 @@ class Dashboard(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self._search_timer = None
         self._render_job = None
-        self.sort_order = "DESC" # Default order
+        self._resize_timer = None
+        self._is_resizing = False
+        self._last_size = None
+        self.sort_order = "DESC"
+        
+        # Virtual scrolling
+        self._all_apps = []
+        self._visible_items = []
+        self.ITEM_HEIGHT = 54  # Height of each AppListItem
+        
         self.setup_ui()
         self.refresh_stats()
         self.refresh_list()
+        
+        # Bind resize event for throttling
+        self.bind("<Configure>", self._on_resize)
 
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
@@ -111,10 +117,16 @@ class Dashboard(ctk.CTkFrame):
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(self.top_frame, placeholder_text="Search company or role...", width=300, textvariable=self.search_var)
         self.search_entry.pack(side="left", padx=(0, 10))
-        # self.search_var.trace_add("write", self.on_search_change) # Search only on button click
-
+        # Bind Enter key to search
+        self.search_entry.bind("<Return>", lambda e: self.refresh_list())
+        
         self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=80, command=self.refresh_list)
         self.search_btn.pack(side="left", padx=(0, 20))
+
+        # Show All Toggle
+        self.show_all_var = ctk.BooleanVar(value=False)
+        self.show_all_switch = ctk.CTkSwitch(self.top_frame, text="Show All", variable=self.show_all_var, command=self.refresh_list)
+        self.show_all_switch.pack(side="left", padx=(0, 20))
 
         # Hidden sort variable to maintain logic
         self.sort_var = ctk.StringVar(value="Date")
@@ -181,29 +193,60 @@ class Dashboard(ctk.CTkFrame):
         # Clear existing
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
+        self._visible_items.clear()
 
         search_query = self.search_var.get()
         sort_by = self.sort_var.get()
         
-        apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
+        self._all_apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
         
-        # Start batch rendering
-        self._render_chunk(apps, 0)
+        # Limit to 20 if Show All is off and not searching
+        if not self.show_all_var.get() and not search_query:
+            self._all_apps = self._all_apps[:20]
+        
+        # Render list in chunks for performance
+        self._render_chunk(0)
 
-    def _render_chunk(self, apps_list, index, chunk_size=15):
-        """Renders items in batches to prevent UI freeze."""
-        end_index = min(index + chunk_size, len(apps_list))
+    def _render_chunk(self, index, chunk_size=30):
+        """Renders items in batches to populate the scroll area without freezing."""
+        if self._is_resizing:
+            self._render_job = self.after(100, lambda: self._render_chunk(index, chunk_size))
+            return
+            
+        end_index = min(index + chunk_size, len(self._all_apps))
         
         for i in range(index, end_index):
-            app = apps_list[i]
-            # Use self.refresh_data for now as callback, or better, just stats/re-sort
-            item = AppListItem(self.scrollable_frame, app, self.refresh_stats) 
+            app = self._all_apps[i]
+            item = AppListItem(self.scrollable_frame, app, self.refresh_stats)
             item.pack(fill="x", pady=2)
-        
-        if end_index < len(apps_list):
-            self._render_job = self.after(10, lambda: self._render_chunk(apps_list, end_index, chunk_size))
+            self._visible_items.append(item)
+            
+        if end_index < len(self._all_apps):
+            self._render_job = self.after(20, lambda: self._render_chunk(end_index, chunk_size))
         else:
             self._render_job = None
+
+    def _on_resize(self, event=None):
+        """Handle window resize events with throttling and filtering"""
+        # Only respond to resize of this widget, not children
+        if event and event.widget != self:
+            return
+            
+        # Check if size actually changed
+        current_size = (self.winfo_width(), self.winfo_height())
+        if self._last_size == current_size:
+            return
+        self._last_size = current_size
+        
+        self._is_resizing = True
+        if self._resize_timer:
+            self.after_cancel(self._resize_timer)
+        self._resize_timer = self.after(300, self._on_resize_complete)
+    
+    def _on_resize_complete(self):
+        """Resume rendering after resize is complete"""
+        self._is_resizing = False
+        # No need to re-render everything on resize since pack handles layout
 
     def on_search_change(self, *args):
         if self._search_timer:
@@ -239,11 +282,23 @@ class Dashboard(ctk.CTkFrame):
 
     def save_new_application(self, company, role):
         try:
+            # Check if exists
+            from ..core.database import application_exists, count_applications_with_name
+            final_role = role
+            if application_exists(company, role):
+                if not messagebox.askyesno("Duplicate Entry", 
+                    f"An application for '{company}' - '{role}' already exists.\n\nDo you want to create another one with an index?"):
+                    return
+                
+                # Generate indexed name
+                count = count_applications_with_name(company, role)
+                final_role = f"{role} ({count + 1})"
+
             # 1. Create Folder and templates
-            folder_path = create_application_folder(company, role)
+            folder_path = create_application_folder(company, final_role)
             
             # 2. Update Database
-            add_application(company, role, folder_path)
+            add_application(company, final_role, folder_path)
             
             # 3. Refresh UI
             self.refresh_data()

@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from .config_mgr import load_config
+from .config_mgr import load_config, get_active_root
 
 def create_application_folder(company, role):
     """
@@ -9,9 +9,13 @@ def create_application_folder(company, role):
     Returns the absolute path to the created folder.
     """
     config = load_config()
-    root_dir = Path(config.get("root_directory"))
+    root_path = get_active_root()
+    if not root_path:
+        raise ValueError("Active root directory is not set.")
+        
+    root_dir = Path(root_path)
     cv_template = Path(config.get("cv_template_path"))
-    cl_template = Path(config.get("cl_template_path"))
+    cover_letter_template = Path(config.get("cover_letter_template_path"))
 
     if not root_dir.exists():
         raise FileNotFoundError(f"Root directory does not exist: {root_dir}")
@@ -29,9 +33,9 @@ def create_application_folder(company, role):
         cv_dest = app_folder / f"{company_clean}_{role_clean}_CV{cv_template.suffix}"
         shutil.copy2(cv_template, cv_dest)
     
-    if cl_template.exists():
-        cl_dest = app_folder / f"{company_clean}_{role_clean}_CL{cl_template.suffix}"
-        shutil.copy2(cl_template, cl_dest)
+    if cover_letter_template.exists():
+        cl_dest = app_folder / f"{company_clean}_{role_clean}_Cover_Letter{cover_letter_template.suffix}"
+        shutil.copy2(cover_letter_template, cl_dest)
 
     return str(app_folder.absolute())
 

@@ -2,11 +2,20 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_FILE = "applications.db"
+from .config_mgr import get_active_root
+
+DB_NAME = "jalm_apps.db"
 
 def get_db_connection():
-    """Establishes a connection to the SQLite database."""
-    conn = sqlite3.connect(DB_FILE)
+    """Establishes a connection to the SQLite database inside the active root."""
+    root = get_active_root()
+    if not root:
+        # Fallback for initialization or if root not set (managed by Main App)
+        conn = sqlite3.connect(DB_NAME)
+    else:
+        db_path = os.path.join(root, DB_NAME)
+        conn = sqlite3.connect(db_path)
+        
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -142,6 +151,17 @@ def application_exists(company, role):
     exists = cursor.fetchone() is not None
     conn.close()
     return exists
+
+def count_applications_with_name(company, role):
+    """Counts how many applications exist for a company where the role name starts with 'role'."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Looking for exact match or 'Role (Index)' format
+    pattern = f"{role}%"
+    cursor.execute('SELECT COUNT(*) FROM applications WHERE company_name = ? AND role_name LIKE ?', (company, pattern))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
 
 if __name__ == "__main__":
     init_db()
