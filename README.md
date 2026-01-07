@@ -8,9 +8,10 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **Smart Import**: Scans your existing root directory for `Company/Role` structures and imports them automatically into the database.
 - **Sequential Interview Tracking**: Log notes and feedback for every round of interviews in a sequence.
 - **High Performance**:
-    - **Debounced Search**: Smooth, lag-free searching through hundreds of applications.
+    - **Optimized Search**: Manual search trigger with high-speed query performance.
     - **Database Indexing**: Optimized SQLite queries for instant results.
     - **Batch Rendering**: Fluid UI responsiveness even with large datasets.
+- **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.
 - **Visual Integrity**: Detects missing or moved folders and provides visual feedback.
 - **Modern UI**: Dark-themed, responsive design with tooltips for long names.
 
@@ -19,7 +20,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd "Job Application Manager"
+   cd "Job Application Lifecycle Manager"
    ```
 
 2. **Install dependencies**:
@@ -41,6 +42,8 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 3. **CL Template**: A `.docx` file to be used as a template for cover letters.
 
 ### Managing Applications
+- **Search**: Enter text in the search bar and click the **Search** button to filter your applications.
+- **Sorting**: Click the **Company** header to sort alphabetically (A-Z/Z-A) or the **Date** header for timeline sorting (Newest/Oldest).
 - **Add Application**: Click the `+ Add Application` button, enter the company and role, and JALM will create the folders and copy your templates.
 - **Update Status**: Use the dropdown menu in the list to track your progress (Applied, Interviewing, etc.).
 - **Interviews**: Click the `Interviews` button to log notes for each round.
