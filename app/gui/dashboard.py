@@ -94,6 +94,7 @@ class Dashboard(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self._search_timer = None
         self._render_job = None
+        self.sort_order = "DESC" # Default order
         self.setup_ui()
         self.refresh_stats()
         self.refresh_list()
@@ -109,8 +110,14 @@ class Dashboard(ctk.CTkFrame):
         # Search Bar
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(self.top_frame, placeholder_text="Search company or role...", width=300, textvariable=self.search_var)
-        self.search_entry.pack(side="left", padx=(0, 20))
-        self.search_var.trace_add("write", self.on_search_change)
+        self.search_entry.pack(side="left", padx=(0, 10))
+        # self.search_var.trace_add("write", self.on_search_change) # Search only on button click
+
+        self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=80, command=self.refresh_list)
+        self.search_btn.pack(side="left", padx=(0, 20))
+
+        # Hidden sort variable to maintain logic
+        self.sort_var = ctk.StringVar(value="Date")
 
         # Stats Area
         self.stats_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
@@ -130,10 +137,16 @@ class Dashboard(ctk.CTkFrame):
         self.header_frame = ctk.CTkFrame(self.list_frame, height=40)
         self.header_frame.pack(fill="x", padx=10, pady=10)
         
-        ctk.CTkLabel(self.header_frame, text="Company", font=("Arial", 12, "bold"), width=200, anchor="w").pack(side="left", padx=10)
+        self.comp_header = ctk.CTkLabel(self.header_frame, text="Company ↕", font=("Arial", 12, "bold"), width=200, anchor="w", cursor="hand2")
+        self.comp_header.pack(side="left", padx=10)
+        self.comp_header.bind("<Button-1>", lambda e: self.on_header_click("Company"))
+
         ctk.CTkLabel(self.header_frame, text="Role", font=("Arial", 12, "bold"), width=200, anchor="w").pack(side="left", padx=10)
         ctk.CTkLabel(self.header_frame, text="Status", font=("Arial", 12, "bold"), width=120, anchor="w").pack(side="left", padx=10)
-        ctk.CTkLabel(self.header_frame, text="Date", font=("Arial", 12, "bold"), width=120, anchor="w").pack(side="left", padx=10)
+        
+        self.date_header = ctk.CTkLabel(self.header_frame, text="Date ↕", font=("Arial", 12, "bold"), width=120, anchor="w", cursor="hand2")
+        self.date_header.pack(side="left", padx=10)
+        self.date_header.bind("<Button-1>", lambda e: self.on_header_click("Date"))
 
         # Scrollable area for items
         self.scrollable_frame = ctk.CTkScrollableFrame(self.list_frame)
@@ -170,7 +183,9 @@ class Dashboard(ctk.CTkFrame):
             widget.destroy()
 
         search_query = self.search_var.get()
-        apps = get_applications(search_query)
+        sort_by = self.sort_var.get()
+        
+        apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
         
         # Start batch rendering
         self._render_chunk(apps, 0)
@@ -194,6 +209,26 @@ class Dashboard(ctk.CTkFrame):
         if self._search_timer:
             self.after_cancel(self._search_timer)
         self._search_timer = self.after(300, self.refresh_list)
+
+    def on_header_click(self, column):
+        if self.sort_var.get() == column:
+            # Toggle order
+            self.sort_order = "ASC" if self.sort_order == "DESC" else "DESC"
+        else:
+            # New column, set default order
+            self.sort_var.set(column)
+            self.sort_order = "DESC" if column == "Date" else "ASC"
+        
+        # Update header icons to show direction
+        comp_text = "Company " + ("↑" if (column == "Company" and self.sort_order == "ASC") else 
+                                   "↓" if (column == "Company" and self.sort_order == "DESC") else "↕")
+        date_text = "Date " + ("↑" if (column == "Date" and self.sort_order == "ASC") else 
+                                "↓" if (column == "Date" and self.sort_order == "DESC") else "↕")
+        
+        self.comp_header.configure(text=comp_text)
+        self.date_header.configure(text=date_text)
+        
+        self.refresh_list()
 
     def on_add_application(self):
         dialog = AddAppDialog(self.winfo_toplevel(), self.save_new_application)

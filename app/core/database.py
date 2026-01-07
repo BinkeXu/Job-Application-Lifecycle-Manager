@@ -60,20 +60,29 @@ def add_application(company, role, folder_path):
     conn.close()
     return app_id
 
-def get_applications(search_query=None):
-    """Fetches all applications, optionally filtered by search query."""
+def get_applications(search_query=None, sort_by="created_at", sort_order="DESC"):
+    """Fetches all applications, optionally filtered and sorted."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    if search_query:
-        query = f"%{search_query}%"
-        cursor.execute('''
-            SELECT * FROM applications 
-            WHERE company_name LIKE ? OR role_name LIKE ?
-            ORDER BY created_at DESC
-        ''', (query, query))
-    else:
-        cursor.execute('SELECT * FROM applications ORDER BY created_at DESC')
     
+    # Map friendly sort names to column names
+    sort_map = {
+        "Date": "created_at",
+        "Company": "company_name"
+    }
+    column = sort_map.get(sort_by, "created_at")
+    
+    query_str = 'SELECT * FROM applications'
+    params = []
+    
+    if search_query:
+        query_str += ' WHERE company_name LIKE ? OR role_name LIKE ?'
+        search_val = f"%{search_query}%"
+        params.extend([search_val, search_val])
+    
+    query_str += f' ORDER BY {column} {sort_order}'
+    
+    cursor.execute(query_str, params)
     apps = cursor.fetchall()
     conn.close()
     return apps
