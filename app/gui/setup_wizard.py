@@ -8,7 +8,7 @@ class SetupWizard(ctk.CTkToplevel):
     def __init__(self, parent, on_complete_callback):
         super().__init__(parent)
         self.title("JALM - Initial Setup")
-        self.geometry("500x400")
+        self.geometry("500x500")
         self.on_complete_callback = on_complete_callback
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -24,26 +24,30 @@ class SetupWizard(ctk.CTkToplevel):
 
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(6, weight=1)
 
         label = ctk.CTkLabel(self, text="Job Application Lifecycle Manager Setup", font=("Arial", 20, "bold"))
         label.grid(row=0, column=0, pady=20, padx=20)
+        
+        # User Name
+        self.user_name_var = ctk.StringVar(value=self.config.get("user_name", ""))
+        self.create_name_selector(1, "Your Full Name (for template naming):", self.user_name_var)
 
         # Root Directory
         self.root_dir_var = ctk.StringVar(value=self.active_root if self.active_root else "")
-        self.create_path_selector(1, "Applications Root Folder:", self.root_dir_var, self.select_root_dir)
+        self.create_path_selector(2, "Applications Root Folder:", self.root_dir_var, self.select_root_dir)
 
         # CV Template
         self.cv_path_var = ctk.StringVar(value=self.config.get("cv_template_path", ""))
-        self.create_path_selector(2, "CV Template (.docx):", self.cv_path_var, self.select_cv_template)
+        self.create_path_selector(3, "CV Template (.docx):", self.cv_path_var, self.select_cv_template)
 
         # Cover Letter Template
         self.cl_path_var = ctk.StringVar(value=self.config.get("cover_letter_template_path", ""))
-        self.create_path_selector(3, "Cover Letter Template (.docx):", self.cl_path_var, self.select_cover_letter_template)
+        self.create_path_selector(4, "Cover Letter Template (.docx):", self.cl_path_var, self.select_cover_letter_template)
 
         # Save Button
         save_btn = ctk.CTkButton(self, text="Complete Setup", command=self.save_and_close)
-        save_btn.grid(row=4, column=0, pady=30, padx=20)
+        save_btn.grid(row=5, column=0, pady=30, padx=20)
 
     def create_path_selector(self, row, label_text, var, command):
         frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -58,6 +62,16 @@ class SetupWizard(ctk.CTkToplevel):
         btn = ctk.CTkButton(frame, text="Browse", width=80, command=command)
         btn.grid(row=1, column=1)
 
+    def create_name_selector(self, row, label_text, var):
+        frame = ctk.CTkFrame(self, fg_color="transparent")
+        frame.grid(row=row, column=0, sticky="ew", padx=20, pady=10)
+        frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(frame, text=label_text).grid(row=0, column=0, sticky="w")
+        
+        entry = ctk.CTkEntry(frame, textvariable=var, placeholder_text="e.g. John Doe")
+        entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+
     def select_root_dir(self):
         path = filedialog.askdirectory()
         if path:
@@ -71,6 +85,8 @@ class SetupWizard(ctk.CTkToplevel):
                 self.cv_path_var.set(existing_config["cv_template_path"])
             if existing_config.get("cover_letter_template_path"):
                 self.cl_path_var.set(existing_config["cover_letter_template_path"])
+            if existing_config.get("user_name"):
+                self.user_name_var.set(existing_config["user_name"])
             
             # Revert if not saving yet? No, actually it's fine to leave it pointed there
             # as it will be finalized in save_and_close
@@ -86,13 +102,14 @@ class SetupWizard(ctk.CTkToplevel):
             self.cl_path_var.set(path)
 
     def save_and_close(self):
-        if not self.root_dir_var.get() or not self.cv_path_var.get() or not self.cl_path_var.get():
-            messagebox.showwarning("Incomplete Setup", "Please provide all paths to continue.")
+        if not self.user_name_var.get() or not self.root_dir_var.get() or not self.cv_path_var.get() or not self.cl_path_var.get():
+            messagebox.showwarning("Incomplete Setup", "Please provide all information to continue.")
             return
 
         set_active_root(self.root_dir_var.get())
         
         new_config = {
+            "user_name": self.user_name_var.get().strip(),
             "cv_template_path": self.cv_path_var.get(),
             "cover_letter_template_path": self.cl_path_var.get()
         }

@@ -8,6 +8,7 @@ jalm_apps.db
 build/
 dist/
 *.spec
+CHANGELOG_LOCAL.md
 __pycache__/
 *.py[cod]
 *$py.class

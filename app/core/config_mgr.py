@@ -6,6 +6,7 @@ GLOBAL_CONFIG_FILE = "config.json"
 WORKSPACE_CONFIG_NAME = "jalm_config.json"
 
 DEFAULT_CONFIG = {
+    "user_name": "",
     "cv_template_path": "",
     "cover_letter_template_path": ""
 }
@@ -78,5 +79,7 @@ def is_config_complete():
         return False
     
     config = load_config()
-    # Check if templates are set (assuming they should be present once root is set via wizard)
-    return all(config.values()) and config.get("cv_template_path") != ""
+    # Check if templates and user name are set
+    return (config.get("user_name") != "" and 
+            config.get("cv_template_path") != "" and 
+            config.get("cover_letter_template_path") != "")

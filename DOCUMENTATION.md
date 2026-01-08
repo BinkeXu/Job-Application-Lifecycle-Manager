@@ -62,7 +62,7 @@ JALM implements **Workspace Isolation**. Each "Applications Root" contains its o
 ### File Operations (`file_ops.py`)
 Contains the logic for:
 - Creating hierarchical folder structures (`Root/Company/Role`).
-- Cloning and renaming template files using the format: `Binke Xu_[CV/Cover Letter]_[Role Name].docx`.
+- Cloning and renaming template files using the format: `[User Name]_[CV/Cover Letter]_[Role Name].docx`.
 - Scanning and synchronizing the filesystem (`on_reload`):
     - **Inbound**: Automatically imports newly discovered `Company/Role` folders.
     - **Outbound**: Purges database records for applications whose folders no longer exist on disk.
