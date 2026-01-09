@@ -56,14 +56,20 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_application(company, role, folder_path):
+def add_application(company, role, folder_path, created_at=None):
     """Inserts a new application record."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO applications (company_name, role_name, folder_path)
-        VALUES (?, ?, ?)
-    ''', (company, role, folder_path))
+    if created_at:
+        cursor.execute('''
+            INSERT INTO applications (company_name, role_name, folder_path, created_at)
+            VALUES (?, ?, ?, ?)
+        ''', (company, role, folder_path, created_at))
+    else:
+        cursor.execute('''
+            INSERT INTO applications (company_name, role_name, folder_path)
+            VALUES (?, ?, ?)
+        ''', (company, role, folder_path))
     app_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -114,6 +120,14 @@ def update_application_status(app_id, status):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE applications SET status = ? WHERE id = ?', (status, app_id))
+    conn.commit()
+    conn.close()
+
+def update_application_date(app_id, created_at):
+    """Updates the creation date of an application."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('UPDATE applications SET created_at = ? WHERE id = ?', (created_at, app_id))
     conn.commit()
     conn.close()
 

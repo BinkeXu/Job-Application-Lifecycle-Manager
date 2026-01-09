@@ -38,7 +38,19 @@ def create_application_folder(company, role):
         cl_dest = app_folder / f"{user_name}_Cover Letter_{role_clean}{cover_letter_template.suffix}"
         shutil.copy2(cover_letter_template, cl_dest)
 
-    return str(app_folder.absolute())
+    creation_time = get_folder_creation_time(str(app_folder.absolute()))
+    return str(app_folder.absolute()), creation_time
+
+def get_folder_creation_time(path):
+    """Returns the creation time of a folder formatted for SQLite."""
+    import time
+    from datetime import datetime
+    
+    # On Windows, st_ctime is the creation time
+    # On Unix, st_ctime is the metadata change time
+    # Since the user is on Windows, this is correct for creation time
+    ctime = os.path.getctime(path)
+    return datetime.fromtimestamp(ctime).strftime('%Y-%m-%d %H:%M:%S')
 
 def open_folder(path):
     """Opens the folder in the system's file explorer."""
@@ -66,7 +78,8 @@ def scan_for_existing_applications(root_path):
                     found_apps.append({
                         'company': company_dir.name,
                         'role': role_dir.name,
-                        'path': str(role_dir.absolute())
+                        'path': str(role_dir.absolute()),
+                        'created_at': get_folder_creation_time(role_dir)
                     })
     return found_apps
 

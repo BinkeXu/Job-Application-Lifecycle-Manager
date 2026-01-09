@@ -12,7 +12,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
     │   └── [Company Folders]/  # Your application folders
     ```
 - **Automated Organization**: Automatically creates folders for each application and populates them with standardized CV and Cover Letter templates using a professional format: `[Your Name]_CV_[Role Name].docx`.
-- **Scan & Reload (Two-Way Sync)**: Synchronizes your database with your local files. It automatically imports new folders found on disk and cleans up database entries for folders that have been moved or deleted.
+- **Scan & Reload (Two-Way Sync)**: Synchronizes your database with your local files. It automatically imports new folders found on disk, synchronizes application dates with folder creation dates, and cleans up database entries for folders that have been moved or deleted.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.

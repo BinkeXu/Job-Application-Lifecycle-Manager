@@ -304,23 +304,44 @@ class Dashboard(ctk.CTkFrame):
                 removed_count += 1
 
         # 2. Check for new folders on disk and add to DB
+        # Also update timestamps for existing apps to ensure accuracy
         found_apps = scan_for_existing_applications(root_path)
         added_count = 0
+        updated_count = 0
+        
+        # Helper to find app ID from db_apps list in memory
+        # (Assuming db_apps is still valid, though we deleted some. Deleted ones won't be matched anyway)
+        # Better to re-fetch or query DB, but let's query DB for safety or iterate.
+        
+        from ..core.database import update_application_date, get_applications
+        # Refresh db_apps to get current state after deletions
+        current_db_apps = get_applications()
+        # Create a lookup map
+        db_map = {(app['company_name'], app['role_name']): app['id'] for app in current_db_apps}
+
         for app in found_apps:
-            if not application_exists(app['company'], app['role']):
-                add_application(app['company'], app['role'], app['path'])
+            key = (app['company'], app['role'])
+            if key not in db_map:
+                add_application(app['company'], app['role'], app['path'], app.get('created_at'))
                 added_count += 1
+            else:
+                # Update date for existing app
+                app_id = db_map[key]
+                update_application_date(app_id, app.get('created_at'))
+                updated_count += 1
         
         # Refresh the UI
         self.refresh_stats()
         self.refresh_list()
         
         msg = "Scan Complete!\n"
-        if added_count > 0 or removed_count > 0:
+        if added_count > 0 or removed_count > 0 or updated_count > 0:
             if added_count > 0:
                 msg += f"- Imported {added_count} new applications\n"
             if removed_count > 0:
                 msg += f"- Removed {removed_count} broken records (folders missing)\n"
+            if updated_count > 0:
+                msg += f"- Synced dates for {updated_count} existing applications\n"
             messagebox.showinfo("Scan Results", msg)
         else:
             messagebox.showinfo("Scan Results", "Everything is already in sync!")
@@ -340,10 +361,10 @@ class Dashboard(ctk.CTkFrame):
                 final_role = f"{role} ({count + 1})"
 
             # 1. Create Folder and templates
-            folder_path = create_application_folder(company, final_role)
+            folder_path, creation_time = create_application_folder(company, final_role)
             
             # 2. Update Database
-            add_application(company, final_role, folder_path)
+            add_application(company, final_role, folder_path, creation_time)
             
             # 3. Refresh UI
             self.refresh_data()

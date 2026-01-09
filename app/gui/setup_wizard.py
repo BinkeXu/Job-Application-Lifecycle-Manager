@@ -133,7 +133,7 @@ class SetupWizard(ctk.CTkToplevel):
         
         for app in found_apps:
             if not application_exists(app['company'], app['role']):
-                add_application(app['company'], app['role'], app['path'])
+                add_application(app['company'], app['role'], app['path'], app.get('created_at'))
                 imported_count += 1
         
         if imported_count > 0:
