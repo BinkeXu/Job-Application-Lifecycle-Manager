@@ -4,22 +4,47 @@ This document provides a detailed overview of the Job Application Lifecycle Mana
 
 ## 🏗️ Project Architecture
 
-JALM follows a modular Python structure:
+JALM now operates as a **Hybrid Intelligence System** where a Python frontend and a .NET background service work in tandem via a shared database and filesystem.
 
+```mermaid
+graph TD
+    User((User))
+    Python["Python Dashboard (CustomTkinter)"]
+    Service[".NET Hybrid Service (Worker)"]
+    DB[("jalm_apps.db (SQLite WAL)")]
+    FS["FileSystem (Job Folders)"]
+    Config["config.json / jalm_config.json"]
+
+    User -->|Interact| Python
+    User -->|Manage Folders| FS
+    
+    Python <-->|Query/Update| DB
+    Python -->|Read Config| Config
+    
+    Service <-->|Sync/Ghosting| DB
+    Service -->|Watch/Clone Templates| FS
+    Service -->|Reload| Config
+    Service -->|Export Analytics| FS
+```
+
+### Component Structure
 ```text
 Job Application Lifecycle Manager/
-├── app/
-│   ├── core/           # Business logic and data management
-│   ├── gui/            # UI components and windows
-│   ├── utils/          # Helper utilities
-│   └── models/         # Data models
-├── main.py             # Entry point
-└── config.json         # Global settings (tracks active root)
-
-[Your Root Directory]/
-├── jalm_config.json    # Workspace-specific templates (CV/Cover Letter)
-├── jalm_apps.db        # Workspace-specific SQLite database
-└── [Company Folders]/  # Your application folders
+├── JALM.Service/       # .NET 8.0 Background Service (C#)
+│   ├── SmartWatcher.cs     # Real-time folder monitoring
+│   ├── DocumentService.cs # Automated CV/Cover Letter generation
+│   ├── AnalyticsService.cs # Background metrics & CSV export
+│   └── ConfigService.cs    # Hot-reloading configuration logic
+├── app/                # Python Desktop Application (Python)
+│   ├── core/               # UI-specific business logic
+│   ├── gui/                # Dashboard and Setup components
+│   └── utils/              # UI helper utilities
+├── config.json         # Shared global state
+└── [Your Root Directory]/
+    ├── jalm_config.json    # Workspace templates & User info
+    ├── jalm_apps.db        # Shared SQLite database
+    ├── analytics.json      # Pre-calculated background metrics
+    └── applications_export.csv # Dynamic data dump
 ```
 
 ## 🗄️ Database Schema
@@ -59,14 +84,25 @@ JALM uses a two-tier configuration system:
 ### Database Management (`database.py`)
 JALM implements **Workspace Isolation**. Each "Applications Root" contains its own `jalm_apps.db`. Switching the root directory in the UI dynamically rebinds the database connection to the new workspace's DB file.
 
-### File Operations (`file_ops.py`)
-Contains the logic for:
-- Creating hierarchical folder structures (`Root/Company/Role`).
-- Cloning and renaming template files using the format: `[User Name]_[CV/Cover Letter]_[Role Name].docx`.
-- Scanning and synchronizing the filesystem (`on_reload`):
-    - **Inbound**: Automatically imports newly discovered `Company/Role` folders and extracts their creation dates.
-    - **Outbound**: Purges database records for applications whose folders no longer exist on disk.
-    - **Sync**: Updates the `created_at` timestamp for existing records to match the physical folder's creation time on Windows.
+### Concurrency Model (WAL)
+To support two high-speed processes accessing the same SQLite database, JALM enforces **Write-Ahead Logging (WAL)**.
+- **Python side**: Configured in `app/core/database.py` with `PRAGMA journal_mode=WAL`.
+- **.NET side**: Configured in `DatabaseService.cs` with `PRAGMA busy_timeout=5000` to handle brief write locks during sync.
+
+### Hybrid Sync Logic
+1.  **SmartWatcher (.NET)**: Monitors the workspace at Depth 2 (`Company/Role`). It uses a **500ms debounce** to ensure that folder renames (e.g., from "New Folder") are finalized before syncing to the DB.
+2.  **Auto-Refresh (Python)**: The UI polls the database count every 10 seconds. It only triggers a full re-render if the count has changed, ensuring background syncs appear instantly without disrupting user search.
+
+### Automated Document Generation
+The `.NET` service handles document preparation headlessly:
+- **CV/Cover Letter cloning**: Triggered instantly on folder creation.
+- **Date Replacement**: In the Cover Letter, the service scans for the `{Date}` placeholder and injects the current date in a professional format (`10, January 2026`).
+- **Nomenclature**: Strictly follows the `[UserName]_[Type]_[RoleName].docx` convention for consistent professional branding.
+
+### Analytics Engine
+Calculated in the background to keep the UI snappy:
+- **Ghosting Detection**: Applications with status `Applied` and no activity for > 30 days are flagged.
+- **Data Export**: Periodically dumps the entire database state into `applications_export.csv` for advanced tracking in spreadsheet software.
 
 ### Performance Optimizations
 - **Virtual Rendering & Limit**: Shows only the 20 most recent applications by default. The "Show All" toggle enables a chunk-based renderer (`_render_chunk`) that populates the list in small batches (30 items at 20ms intervals) to maintain UI responsiveness.

@@ -5,14 +5,13 @@ JALM is a powerful desktop application designed to streamline and automate your 
 ## 🚀 Features
 
 - **Independent & Portable Workspaces**: Every root folder becomes its own independent workspace. Settings and databases are stored *within* your chosen root, making your job data fully portable.
-    ```
-    ├── [Your Root Directory]/
-    │   ├── jalm_config.json    # Workspace-specific templates (CV/Cover Letter)
-    │   ├── jalm_apps.db        # Workspace-specific SQLite database
-    │   └── [Company Folders]/  # Your application folders
-    ```
-- **Automated Organization**: Automatically creates folders for each application and populates them with standardized CV and Cover Letter templates using a professional format: `[Your Name]_CV_[Role Name].docx`.
-- **Scan & Reload (Two-Way Sync)**: Synchronizes your database with your local files. It automatically imports new folders found on disk, synchronizes application dates with folder creation dates, and cleans up database entries for folders that have been moved or deleted.
+- **Hybrid Intelligence Service (.NET)**: A high-performance background service that handles heavy lifting like real-time syncing, document automation, and analytics.
+- **Real-Time Folder Sync**: Automatically detects when you create, rename, or delete folders in your workspace and syncs them to the database instantly with smart debouncing.
+- **Automated Document Generation**: Headlessly clones your CV and Cover Letter templates into new application folders. It automatically updates the date in your Cover Letter (e.g., "10, January 2026").
+- **Live Analytics & Export**:
+    - **Ghosting Tracking**: Automatically flags applications with no activity for > 30 days.
+    - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
+    - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
@@ -34,7 +33,18 @@ JALM is a powerful desktop application designed to streamline and automate your 
    pip install customtkinter
    ```
 
-3. **Run the application**:
+3. **Setup the Background Service (.NET)**:
+   - Navigate to `JALM.Service/`
+   - Build and run the service:
+     ```bash
+     dotnet run
+     ```
+   - (Optional) Build a standalone executable:
+     ```bash
+     dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+     ```
+
+4. **Run the Dashboard (Python)**:
    ```bash
    python main.py
    ```

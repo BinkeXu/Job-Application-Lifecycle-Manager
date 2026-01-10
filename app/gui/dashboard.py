@@ -99,11 +99,39 @@ class Dashboard(ctk.CTkFrame):
         self.ITEM_HEIGHT = 54  # Height of each AppListItem
         
         self.setup_ui()
+        self._last_app_count = 0
+        
         self.refresh_stats()
         self.refresh_list()
         
+        # Start auto-refresh poller
+        self._setup_auto_refresh()
+        
         # Bind resize event for throttling
         self.bind("<Configure>", self._on_resize)
+
+    def _setup_auto_refresh(self):
+        """Initializes the background polling to keep UI in sync with .NET service."""
+        total, _ = get_stats()
+        self._last_app_count = total
+        self.after(5000, self._auto_refresh)
+
+    def _auto_refresh(self):
+        """Periodically refreshes the list ONLY if the application count has changed."""
+        # Don't refresh if user is actively searching or typing
+        if not self.search_var.get():
+            current_total, interviewing = get_stats()
+            
+            if current_total != self._last_app_count:
+                self._last_app_count = current_total
+                self.refresh_list()
+                
+                # Also update stats cards
+                self.total_apps_card.update_value(current_total)
+                self.active_apps_card.update_value(interviewing)
+        
+        # Schedule next refresh
+        self.after(10000, self._auto_refresh)
 
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
@@ -144,6 +172,9 @@ class Dashboard(ctk.CTkFrame):
         
         self.active_apps_card = StatsCard(self.stats_frame, "Interviewing", 0)
         self.active_apps_card.pack(side="left", padx=10)
+
+        self.ghosted_apps_card = StatsCard(self.stats_frame, "Ghosted (30d)", 0)
+        self.ghosted_apps_card.pack(side="left", padx=10)
 
         # Main List Area
         self.list_frame = ctk.CTkFrame(self)
@@ -187,6 +218,20 @@ class Dashboard(ctk.CTkFrame):
         total, interviewing = get_stats()
         self.total_apps_card.update_value(total)
         self.active_apps_card.update_value(interviewing)
+        
+        # Try to load ghosted count from analytics.json
+        from ..core.config_mgr import get_active_root
+        import json
+        root = get_active_root()
+        if root:
+            analytics_path = os.path.join(root, "analytics.json")
+            if os.path.exists(analytics_path):
+                try:
+                    with open(analytics_path, 'r') as f:
+                        data = json.load(f)
+                        self.ghosted_apps_card.update_value(data.get("Ghosted", 0))
+                except:
+                    pass
 
     def refresh_list(self):
         # Cancel any pending render job

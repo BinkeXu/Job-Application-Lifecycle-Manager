@@ -1,0 +1,145 @@
+# Technical Plan: JALM Hybrid Integration
+
+**Version**: 2.0 (Risk-Mitigated)
+**Objective**: Enhance the existing Python JALM application with a robust .NET Background Service for real-time syncing, document automation, and analytics.
+
+## 1. Architecture & Tech Stack
+
+* **Frontend**: Existing Python `CustomTkinter` UI (No major changes required).
+* **Backend**: New **.NET 8.0 Worker Service** (Self-Contained Deployment).
+* **Database**: Shared SQLite `jalm_apps.db`.
+* **Communication**: Shared Filesystem & Database State.
+
+## 2. Core Requirements
+
+* **Concurrency**: Both applications **must** use Write-Ahead Logging (WAL) mode to prevent `database is locked` errors.
+* **Resilience**: The service must automatically recover from configuration changes (Root Directory switching) without restarting.
+* **Latency**: File system events must be "debounced" (delayed) by 500ms to avoid race conditions with Windows Explorer.
+
+---
+
+## 3. Implementation Phases
+
+### Phase 1: Infrastructure & Database Hardening
+
+**Goal**: Establish the .NET Service and secure concurrent database access.
+
+1. **Project Initialization**:
+* Create `JALM.Service` (Worker Service) in .NET 8.0.
+* Add NuGet Packages: `Microsoft.Data.Sqlite`, `DocumentFormat.OpenXml`, `System.Text.Json`.
+
+
+2. **Robust Configuration Loader**:
+* Implement `ConfigService` to read `config.json` from the app root.
+* **Hot-Reload Logic**: Add a `FileSystemWatcher` specifically for `config.json`. When changed, reload the `active_root` path and restart the main folder watcher.
+
+
+3. **Database Connection Strategy (Crucial)**:
+* **Connection String**: `Data Source=jalm_apps.db;Mode=ReadWriteCreate;Cache=Shared;Pooling=True;`
+* **WAL Enforcement**: On service startup, execute the SQL command:
+```sql
+PRAGMA journal_mode=WAL;
+PRAGMA synchronous=NORMAL;
+PRAGMA busy_timeout=5000;
+
+```
+
+
+* **Python Update**: You must also update your Python `database.py` to execute `PRAGMA journal_mode=WAL;` on initialization.
+
+
+
+### Phase 2: "Smart Sync" with Debouncing
+
+**Goal**: Reliable real-time folder monitoring without "New Folder" conflicts.
+
+1. **Debounced Watcher**:
+* Create a `SmartWatcher` class wrapping `FileSystemWatcher`.
+* **Logic**: Maintain a `Dictionary<string, CancellationTokenSource>` of pending file events.
+* **Timer**: When an event (Create/Rename) occurs, wait **500ms**. If a subsequent event occurs for the same path (e.g., "New Folder" -> Renamed to "Google"), cancel the first event and process only the final state.
+
+
+2. **Inbound Sync (Folder -> DB)**:
+* **Trigger**: Finalized `Created` or `Renamed` event.
+* **Action**:
+* Extract `Company` and `Role` from path.
+* Insert/Update `applications` table.
+* Set `created_at` using `Directory.GetCreationTime()`.
+
+
+
+
+3. **Outbound Sync (DB -> Folder)**:
+* **Trigger**: `Deleted` event.
+* **Action**: Execute `DELETE FROM applications WHERE folder_path = @path`.
+
+
+
+### Phase 3: Defensive Document Generation
+
+**Goal**: Automate template cloning without crashing on missing files.
+
+1. **Safe Template Resolution**:
+* Read `jalm_config.json` from the `active_root` to find template paths.
+* **Pre-Check**: Wrap logic in a `try-catch` block.
+* `if (!File.Exists(templatePath))`: Log warning "Templates missing", abort generation, **do not crash**.
+
+
+
+
+2. **Headless Generation (OpenXML)**:
+* **Trigger**: Successfully processed `OnCreated` event from Phase 2.
+* **Execution**:
+* Clone template to: `[Company]/[Role]/[User]_[Type]_[Role].docx`.
+* Inject Text: Replace `{RoleName}` and `{CompanyName}` placeholders.
+* **Retry Policy**: If the file is locked by Word (rare), retry 3 times with 1-second delays.
+
+
+
+
+
+### Phase 4: Analytics Engine
+
+**Goal**: Provide insight data without impacting UI performance.
+
+1. **Metric Calculation**:
+* Implement `AnalyticsService` to run every 6 hours or on demand.
+* Queries:
+* **Conversion**: `(Interviews / Applications) * 100`.
+* **Ghosting**: `(Status='Ghosted' / Total) * 100`.
+
+
+
+
+2. **Data Export**:
+* Implement `ExportService` that writes `jalm_export.csv` to the desktop.
+* Use streaming write (avoid loading all rows into RAM) for scalability.
+
+
+
+---
+
+## 4. Deployment & Build Settings
+
+To ensure the engineer encounters no environment issues:
+
+* **Build Command**:
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+
+```
+
+
+* `--self-contained true`: Bundles the .NET runtime (user doesn't need to install .NET).
+* `-p:PublishSingleFile=true`: Produces a single `JALM.Service.exe` file.
+
+
+
+## 5. Summary of Mitigations
+
+| Risk | Mitigation Implemented |
+| --- | --- |
+| **Database Locked** | Enforced `PRAGMA journal_mode=WAL` and `busy_timeout=5000` in Phase 1. |
+| **Race Conditions** | Added **500ms Debounce Timer** in Phase 2 to filter "New Folder" events. |
+| **Missing Config** | Added **Hot-Reload Watcher** in Phase 1 to detect Root Directory changes dynamically. |
+| **Missing Templates** | Added `File.Exists` check in Phase 3 to fail silently/log instead of crashing. |
