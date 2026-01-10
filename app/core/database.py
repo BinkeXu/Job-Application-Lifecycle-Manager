@@ -6,31 +6,36 @@ from .config_mgr import get_active_root
 
 DB_NAME = "jalm_apps.db"
 
+# This function creates a "Pipe" to the SQLite database file.
 def get_db_connection():
     """Establishes a connection to the SQLite database inside the active root."""
     root = get_active_root()
     if not root:
-        # Fallback for initialization or if root not set (managed by Main App)
+        # If no project is selected yet, save the DB in the current folder.
         conn = sqlite3.connect(DB_NAME)
     else:
+        # Otherwise, save it inside the user's chosen "Root" folder.
         db_path = os.path.join(root, DB_NAME)
         conn = sqlite3.connect(db_path)
         
     conn.row_factory = sqlite3.Row
     
-    # Enable WAL mode and set busy timeout for concurrency
+    # ADVANCED: We enable "Write-Ahead Logging" (WAL) mode.
+    # This keeps the database fast and allows BOTH the Python UI and the 
+    # .NET Background Service to read/write at the same time without crashing.
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA busy_timeout=5000") # Wait up to 5 seconds if the file is busy.
     
     return conn
 
+# This "Initializes" the database by creating tables if they don't exist.
 def init_db():
     """Initializes the database with the required tables."""
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Create applications table
+    # 1. table for all your job applications.
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS applications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +47,7 @@ def init_db():
         )
     ''')
 
-    # Create interviews table
+    # 2. table for tracking interview notes.
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS interviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +59,7 @@ def init_db():
         )
     ''')
 
-    # Create Indexes for faster search
+    # 3. Create "Indexes" to make searching for companies super fast.
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_apps_company ON applications(company_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_apps_role ON applications(role_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_apps_created ON applications(created_at)')

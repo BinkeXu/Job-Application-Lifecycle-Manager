@@ -111,26 +111,31 @@ class Dashboard(ctk.CTkFrame):
         self.bind("<Configure>", self._on_resize)
 
     def _setup_auto_refresh(self):
-        """Initializes the background polling to keep UI in sync with .NET service."""
+        """
+        Sets up a 'heartbeat' for the UI.
+        Every 10 seconds, it checks if the .NET service has added new jobs 
+        or if any files were moved, so the UI stays up-to-date automatically.
+        """
         total, _ = get_stats()
         self._last_app_count = total
         self.after(5000, self._auto_refresh)
 
     def _auto_refresh(self):
         """Periodically refreshes the list ONLY if the application count has changed."""
-        # Don't refresh if user is actively searching or typing
+        # If you are typing in the search box, we pause the auto-refresh so we don't interrupt you.
         if not self.search_var.get():
             current_total, interviewing = get_stats()
             
+            # If the number of jobs changed (Sync added a new folder!), update the UI.
             if current_total != self._last_app_count:
                 self._last_app_count = current_total
                 self.refresh_list()
                 
-                # Also update stats cards
+                # Update the numbers at the top of the screen.
                 self.total_apps_card.update_value(current_total)
                 self.active_apps_card.update_value(interviewing)
         
-        # Schedule next refresh
+        # Check again in 10 seconds.
         self.after(10000, self._auto_refresh)
 
     def setup_ui(self):
@@ -215,11 +220,13 @@ class Dashboard(ctk.CTkFrame):
         self.refresh_list()
 
     def refresh_stats(self):
+        """Fetches the latest numbers and updates the cards at the top of the app."""
         total, interviewing = get_stats()
         self.total_apps_card.update_value(total)
         self.active_apps_card.update_value(interviewing)
         
-        # Try to load ghosted count from analytics.json
+        # The 'Ghosted' count is calculated by the .NET Background Service.
+        # It saves it to a file called 'analytics.json'. We try to read it here.
         from ..core.config_mgr import get_active_root
         import json
         root = get_active_root()
@@ -229,8 +236,10 @@ class Dashboard(ctk.CTkFrame):
                 try:
                     with open(analytics_path, 'r') as f:
                         data = json.load(f)
+                        # Update the 'Ghosted (30d)' card with the latest number!
                         self.ghosted_apps_card.update_value(data.get("Ghosted", 0))
                 except:
+                    # If the file is being written to by the service, just skip this update.
                     pass
 
     def refresh_list(self):
