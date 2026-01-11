@@ -90,3 +90,14 @@ def scan_for_existing_applications(root_path):
                     })
     return found_apps
 
+def append_interview_note(folder_path, sequence, note):
+    """Appends an interview note to interviews.txt in the application folder."""
+    from datetime import datetime
+    jd_path = Path(folder_path) / "interviews.txt"
+    date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    formatted_note = f"\n--- Interview {sequence} ({date_str}) ---\n{note}\n"
+    
+    with open(jd_path, "a", encoding="utf-8") as f:
+        f.write(formatted_note)
+

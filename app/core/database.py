@@ -141,6 +141,16 @@ def update_application_status(app_id, status):
     conn.commit()
     conn.close()
 
+# This function helps the app find a specific job application using its unique ID number.
+def get_application_by_id(app_id):
+    """Fetches a single application by its ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM applications WHERE id = ?', (app_id,))
+    app = cursor.fetchone()
+    conn.close()
+    return app
+
 def update_application_date(app_id, created_at):
     """Updates the creation date of an application."""
     conn = get_db_connection()
@@ -150,21 +160,23 @@ def update_application_date(app_id, created_at):
     conn.close()
 
 def add_interview(app_id, notes):
-    """Adds a new interview record with incremental sequence."""
+    """Adds a new interview record with incremental sequence. Returns the sequence number."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get current sequence
     cursor.execute('SELECT COUNT(*) FROM interviews WHERE app_id = ?', (app_id,))
     count = cursor.fetchone()[0]
+    next_sequence = count + 1
     
     cursor.execute('''
         INSERT INTO interviews (app_id, sequence, notes)
         VALUES (?, ?, ?)
-    ''', (app_id, count + 1, notes))
+    ''', (app_id, next_sequence, notes))
     
     conn.commit()
     conn.close()
+    return next_sequence
 
 def get_interviews(app_id):
     """Fetches all interviews for a specific application."""

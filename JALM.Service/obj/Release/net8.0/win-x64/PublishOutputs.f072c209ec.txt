@@ -1,0 +1,5 @@
+E:\Personal Project\Job Application Lifecycle Manager\JALM.Service\bin\Release\net8.0\win-x64\publish\appsettings.Development.json
+E:\Personal Project\Job Application Lifecycle Manager\JALM.Service\bin\Release\net8.0\win-x64\publish\appsettings.json
+E:\Personal Project\Job Application Lifecycle Manager\JALM.Service\bin\Release\net8.0\win-x64\publish\JALM.Service.pdb
+E:\Personal Project\Job Application Lifecycle Manager\JALM.Service\bin\Release\net8.0\win-x64\publish\e_sqlite3.dll
+E:\Personal Project\Job Application Lifecycle Manager\JALM.Service\bin\Release\net8.0\win-x64\publish\JALM.Service.exe

@@ -11,6 +11,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **Live Analytics & Export**:
     - **Ghosting Tracking**: Automatically flags applications with no activity for > 30 days.
     - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
+    - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
@@ -63,9 +64,9 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 - **Scan & Reload**: Click this to sync your dashboard with your folder structure. It imports new folders and removes "broken" links for folders you've deleted manually.
 - **List Limit**: By default, JALM shows the 20 most recent applications. Toggle **Show All** to view your entire history.
 - **Sorting**: Click the **Company** or **Date** headers to toggle sort direction.
-- **Add Application**: Click `+ Add Application`. JALM automatically appends an index if a duplicate role exists in the same company.
+- **Add Application**: Click `+ Add Application`. JALM automatically appends an index if a duplicate role exists in the same company. You can also paste the **Job Description** here to save it as a text file.
 - **Open Folder**: Simply **double-click** any row to jump to that application's local directory. (Red text indicates a missing folder).
-- **Interviews**: Click the `Interviews` button to log notes for each round.
+- **Interviews**: Click the `Interviews` button to log notes for each round. Notes are saved to the database and appended to an `interviews.txt` file in the folder.
 - **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
 - **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
 

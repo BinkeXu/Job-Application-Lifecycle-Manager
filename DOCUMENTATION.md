@@ -61,6 +61,7 @@ Stores the high-level metadata for each job application.
 | `role_name` | TEXT | Specific job title. |
 | `folder_path` | TEXT | Absolute path to the role folder. |
 | `status` | TEXT | Applied, Interviewing, Rejected, Offer, Ghosted. |
+| `job_description` | TEXT | Full text of the job post (stored in DB and `.txt`). |
 | `created_at` | DATETIME | Timestamp of entry creation. |
 
 ### Table: `interviews`
@@ -98,6 +99,11 @@ The `.NET` service handles document preparation headlessly:
 - **CV/Cover Letter cloning**: Triggered instantly on folder creation.
 - **Date Replacement**: In the Cover Letter, the service scans for the `{Date}` placeholder and injects the current date in a professional format (`10, January 2026`).
 - **Nomenclature**: Strictly follows the `[UserName]_[Type]_[RoleName].docx` convention for consistent professional branding.
+
+### Persistent Application Data
+To ensure your job data is human-readable outside of JALM, the system also mirrors key information to plain text files:
+- **`job_description.txt`**: Created during the initial "Add Application" step.
+- **`interviews.txt`**: A chronological log of all interview rounds. Each new note is appended with a sequence header and timestamp.
 
 ### Analytics Engine
 Calculated in the background to keep the UI snappy:

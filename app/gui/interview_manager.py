@@ -1,5 +1,6 @@
 import customtkinter as ctk
-from ..core.database import get_interviews, add_interview
+from ..core.database import get_interviews, add_interview, get_application_by_id
+from ..core.file_ops import append_interview_note
 from tkinter import simpledialog, messagebox
 
 class InterviewManager(ctk.CTkToplevel):
@@ -53,12 +54,21 @@ class InterviewManager(ctk.CTkToplevel):
             notes_text.configure(state="disabled")
 
     def on_add_interview(self):
-        # We can use a simple input dialog or a new custom one.
-        # Let's use a custom small dialog for better look.
+        """Prompts the user for a note and saves it to both the database and a text file."""
+        # Simple dialog to ask for the note.
         note = simpledialog.askstring("Interview Note", "Enter interview details/feedback:", parent=self)
         if note:
             try:
-                add_interview(self.app_id, note)
+                # 1. Save to Database first. We get a 'sequence' number (e.g., Interview 1).
+                sequence = add_interview(self.app_id, note)
+                
+                # 2. Find where the application's folder is on your computer.
+                app = get_application_by_id(self.app_id)
+                if app and app['folder_path']:
+                    # 3. Append the note to the 'interviews.txt' file in that folder.
+                    append_interview_note(app['folder_path'], sequence, note)
+                
+                # Update the list on the screen.
                 self.refresh_list()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to add interview: {e}")
