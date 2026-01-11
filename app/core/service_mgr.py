@@ -58,12 +58,22 @@ class ServiceManager:
 
         print(f"Starting Background Service: {service_path}")
         try:
+            # When running as an EXE, we need to tell the .NET service where the 
+            # main application folder is, so it can find 'config.json'.
+            # sys.executable gives us the path to the running .exe.
+            executable_dir = str(Path(sys.executable).parent)
+            
+            # Create a copy of the current environment and add our custom variable.
+            env = os.environ.copy()
+            env["JALM_CONFIG_DIR"] = executable_dir
+
             # CREATE_NO_WINDOW (0x08000000) makes the process run invisibly.
             # This is important so the user doesn't see a random black box.
             self._process = subprocess.Popen(
                 [str(service_path)],
                 creationflags=0x08000000,
-                cwd=str(service_path.parent) # Ensure it runs in its own directory
+                cwd=str(service_path.parent), # Ensure it runs in its own directory
+                env=env
             )
         except Exception as e:
             print(f"Failed to start background service: {e}")

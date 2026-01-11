@@ -39,3 +39,6 @@ ENV/
 .idea/
 *.swp
 *.swo
+
+# Project Summary
+summary.txt

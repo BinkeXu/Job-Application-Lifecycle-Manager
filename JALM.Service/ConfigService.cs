@@ -18,21 +18,33 @@ public class ConfigService
     public ConfigService(ILogger<ConfigService> logger)
     {
         _logger = logger;
-        // Search upwards for config.json
-        var currentDir = AppDomain.CurrentDomain.BaseDirectory;
+        
+        // Search for config.json. 
+        // We first check if the Python app has told us where the config is (via Environment Variable).
+        // This is crucial when running as a bundled .exe!
+        var currentDir = Environment.GetEnvironmentVariable("JALM_CONFIG_DIR") ?? AppDomain.CurrentDomain.BaseDirectory;
+        
+        _logger.LogInformation("Searching for config in: {Dir}", currentDir);
+
         while (!string.IsNullOrEmpty(currentDir))
         {
             var potentialPath = Path.Combine(currentDir, "config.json");
             if (File.Exists(potentialPath))
             {
                 _configPath = potentialPath;
+                _logger.LogInformation("Found config at: {Path}", _configPath);
                 break;
             }
-            currentDir = Path.GetDirectoryName(currentDir);
+            
+            // Move up one folder to see if it's there.
+            var parent = Path.GetDirectoryName(currentDir);
+            if (parent == currentDir) break; // Avoid infinite loop
+            currentDir = parent;
         }
 
         if (string.IsNullOrEmpty(_configPath))
         {
+            // Fallback to the same folder as the service file itself.
             _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
         }
 
