@@ -400,7 +400,7 @@ class Dashboard(ctk.CTkFrame):
         else:
             messagebox.showinfo("Scan Results", "Everything is already in sync!")
 
-    def save_new_application(self, company, role):
+    def save_new_application(self, company, role, job_description=None):
         try:
             # Check if exists
             from ..core.database import application_exists, count_applications_with_name
@@ -415,10 +415,10 @@ class Dashboard(ctk.CTkFrame):
                 final_role = f"{role} ({count + 1})"
 
             # 1. Create Folder and templates
-            folder_path, creation_time = create_application_folder(company, final_role)
+            folder_path, creation_time = create_application_folder(company, final_role, job_description)
             
             # 2. Update Database
-            add_application(company, final_role, folder_path, creation_time)
+            add_application(company, final_role, folder_path, creation_time, job_description)
             
             # 3. Refresh UI
             self.refresh_data()

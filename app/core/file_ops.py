@@ -3,9 +3,10 @@ import shutil
 from pathlib import Path
 from .config_mgr import load_config, get_active_root
 
-def create_application_folder(company, role):
+def create_application_folder(company, role, job_description=None):
     """
     Creates a folder for a new job application and copies templates.
+    Also saves the job description as a text file if provided.
     Returns the absolute path to the created folder.
     """
     config = load_config()
@@ -37,6 +38,12 @@ def create_application_folder(company, role):
     if cover_letter_template.exists():
         cl_dest = app_folder / f"{user_name}_Cover Letter_{role_clean}{cover_letter_template.suffix}"
         shutil.copy2(cover_letter_template, cl_dest)
+
+    # Save Job Description
+    if job_description:
+        jd_path = app_folder / "job_description.txt"
+        with open(jd_path, "w", encoding="utf-8") as f:
+            f.write(job_description)
 
     creation_time = get_folder_creation_time(str(app_folder.absolute()))
     return str(app_folder.absolute()), creation_time

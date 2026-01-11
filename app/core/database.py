@@ -43,9 +43,16 @@ def init_db():
             role_name TEXT NOT NULL,
             folder_path TEXT NOT NULL,
             status TEXT DEFAULT 'Applied',
+            job_description TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Migration: Add job_description column if it doesn't exist (for existing users)
+    cursor.execute("PRAGMA table_info(applications)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "job_description" not in columns:
+        cursor.execute("ALTER TABLE applications ADD COLUMN job_description TEXT")
 
     # 2. table for tracking interview notes.
     cursor.execute('''
@@ -67,20 +74,20 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_application(company, role, folder_path, created_at=None):
+def add_application(company, role, folder_path, created_at=None, job_description=None):
     """Inserts a new application record."""
     conn = get_db_connection()
     cursor = conn.cursor()
     if created_at:
         cursor.execute('''
-            INSERT INTO applications (company_name, role_name, folder_path, created_at)
-            VALUES (?, ?, ?, ?)
-        ''', (company, role, folder_path, created_at))
+            INSERT INTO applications (company_name, role_name, folder_path, created_at, job_description)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (company, role, folder_path, created_at, job_description))
     else:
         cursor.execute('''
-            INSERT INTO applications (company_name, role_name, folder_path)
-            VALUES (?, ?, ?)
-        ''', (company, role, folder_path))
+            INSERT INTO applications (company_name, role_name, folder_path, job_description)
+            VALUES (?, ?, ?, ?)
+        ''', (company, role, folder_path, job_description))
     app_id = cursor.lastrowid
     conn.commit()
     conn.close()
