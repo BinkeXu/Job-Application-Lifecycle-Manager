@@ -63,6 +63,13 @@ class ServiceManager:
             # sys.executable gives us the path to the running .exe.
             executable_dir = str(Path(sys.executable).parent)
             
+            # Debug logging
+            log_path = os.path.join(executable_dir, "jalm_service_debug.txt")
+            with open(log_path, "a") as f:
+                f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Attempting to launch service.\n")
+                f.write(f"Service Path: {service_path}\n")
+                f.write(f"Exists: {service_path.exists()}\n")
+
             # Create a copy of the current environment and add our custom variable.
             env = os.environ.copy()
             env["JALM_CONFIG_DIR"] = executable_dir
@@ -73,10 +80,20 @@ class ServiceManager:
                 [str(service_path)],
                 creationflags=0x08000000,
                 cwd=str(service_path.parent), # Ensure it runs in its own directory
-                env=env
+                env=env,
+                stdout=open(os.path.join(executable_dir, "jalm_service_stdout.txt"), "a"),
+                stderr=open(os.path.join(executable_dir, "jalm_service_stderr.txt"), "a")
             )
+            with open(log_path, "a") as f:
+                f.write(f"Process started with PID: {self._process.pid}\n")
+
         except Exception as e:
             print(f"Failed to start background service: {e}")
+            try:
+                with open(os.path.join(executable_dir, "jalm_service_debug.txt"), "a") as f:
+                    f.write(f"EXCEPTION: {e}\n")
+            except:
+                pass
 
     def stop_service(self):
         """

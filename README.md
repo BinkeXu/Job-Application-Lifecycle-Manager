@@ -88,13 +88,12 @@ JALM uses `PyInstaller` to create a standalone Windows executable.
    ```
 
 2. **Run Build Command**:
-   Use the following command to bundle the app with its high-DPI assets:
+   To ensure all assets and the background service are bundled correctly, allow use the provided spec file:
    ```bash
-   pyinstaller --noconsole --onefile --add-data "C:\Python38\lib\site-packages\customtkinter;customtkinter/" --name "Job Application Lifecycle Manager" main.py
+   pyinstaller JALM.spec --noconfirm
    ```
-   *(Note: Ensure the path to `customtkinter` matches your Python installation site-packages.)*
 
-3. **Locate EXE**: Your standalone executable will be generated in the `dist/` folder.
+3. **Locate EXE**: Your standalone executable will be generated in the `dist/` folder as `JALM.exe`.
 
 ## 📄 Documentation
 
