@@ -217,6 +217,39 @@ def delete_application(app_id):
     conn.commit()
     conn.close()
 
+def remove_duplicates():
+    """Removes duplicate records based on folder_path, keeping the one with the lowest ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Enable foreign keys for cascade delete
+    cursor.execute("PRAGMA foreign_keys = ON")
+    
+    # Find all folder_paths that appear more than once
+    cursor.execute('''
+        SELECT folder_path, COUNT(*) 
+        FROM applications 
+        GROUP BY folder_path 
+        HAVING COUNT(*) > 1
+    ''')
+    duplicates = cursor.fetchall()
+    
+    removed_count = 0
+    for row in duplicates:
+        path = row['folder_path']
+        # Keep the record with the smallest ID, delete others
+        cursor.execute('''
+            DELETE FROM applications 
+            WHERE folder_path = ? AND id NOT IN (
+                SELECT MIN(id) FROM applications WHERE folder_path = ?
+            )
+        ''', (path, path))
+        removed_count += cursor.rowcount
+            
+    conn.commit()
+    conn.close()
+    return removed_count
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")

@@ -342,35 +342,21 @@ class Dashboard(ctk.CTkFrame):
         """Scans the root folder for any new directories and removes records for missing folders."""
         from ..core.config_mgr import get_active_root
         from ..core.file_ops import scan_for_existing_applications
-        from ..core.database import add_application, application_exists, get_applications, delete_application
+        from ..core.database import add_application, get_applications, delete_application, remove_duplicates, update_application_date
         
         root_path = get_active_root()
         if not root_path:
             return
 
-        # 1. Check for missing folders and remove from DB
-        # Fetch all from DB (no filters) to verify existence
-        db_apps = get_applications()
-        removed_count = 0
-        for app in db_apps:
-            if not os.path.exists(app['folder_path']):
-                delete_application(app['id'])
-                removed_count += 1
-
-        # 2. Check for new folders on disk and add to DB
+        # 1. Check for new folders on disk and add to DB
         # Also update timestamps for existing apps to ensure accuracy
         found_apps = scan_for_existing_applications(root_path)
         added_count = 0
         updated_count = 0
         
-        # Helper to find app ID from db_apps list in memory
-        # (Assuming db_apps is still valid, though we deleted some. Deleted ones won't be matched anyway)
-        # Better to re-fetch or query DB, but let's query DB for safety or iterate.
-        
-        from ..core.database import update_application_date, get_applications
-        # Refresh db_apps to get current state after deletions
+        # Get current DB state
         current_db_apps = get_applications()
-        # Create a lookup map
+        # Create a lookup map by (company, role)
         db_map = {(app['company_name'], app['role_name']): app['id'] for app in current_db_apps}
 
         for app in found_apps:
@@ -383,17 +369,31 @@ class Dashboard(ctk.CTkFrame):
                 app_id = db_map[key]
                 update_application_date(app_id, app.get('created_at'))
                 updated_count += 1
+
+        # 2. Remove duplicated records (same folder path)
+        # We do this after scanning to catch any duplicates that might have been created
+        duplicates_removed = remove_duplicates()
+
+        # 3. Check for missing folders and remove from DB
+        # Fetch fresh from DB after scan and duplicate removal
+        db_apps = get_applications()
+        removed_count = 0
+        for app in db_apps:
+            if not os.path.exists(app['folder_path']):
+                delete_application(app['id'])
+                removed_count += 1
         
         # Refresh the UI
         self.refresh_stats()
         self.refresh_list()
         
         msg = "Scan Complete!\n"
-        if added_count > 0 or removed_count > 0 or updated_count > 0:
+        total_removed = removed_count + duplicates_removed
+        if added_count > 0 or total_removed > 0 or updated_count > 0:
             if added_count > 0:
                 msg += f"- Imported {added_count} new applications\n"
-            if removed_count > 0:
-                msg += f"- Removed {removed_count} broken records (folders missing)\n"
+            if total_removed > 0:
+                msg += f"- Removed {total_removed} broken or duplicate records\n"
             if updated_count > 0:
                 msg += f"- Synced dates for {updated_count} existing applications\n"
             messagebox.showinfo("Scan Results", msg)
