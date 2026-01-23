@@ -116,6 +116,11 @@ Calculated in the background to keep the UI snappy:
 - **Interactive Headers**: Dynamic sorting with visual indicators (↑/↓) using SQL `ORDER BY` on indexed columns.
 - **Throttled Resize**: Window `<Configure>` events are throttled, pausing rendering during active dragging to eliminate lag.
 
+### Analytics Visualization (`analytics_view.py`)
+- **Matplotlib Integration**: Uses `FigureCanvasTkAgg` to embed Matplotlib charts directly into the CustomTkinter window.
+- **Custom Tooltips**: Implements a manual event handler (`motion_notify_event`) to display data annotations when hovering over chart elements (wedges/bars), as `mplcursors` is not used.
+- **Calendar Dialog**: A custom `CTkToplevel` popup (`calendar_dialog.py`) providing a month-view date picker, replacing heavy external dependencies like `tkcalendar`.
+
 ## 🎨 UI Framework
 
 The application is built using `CustomTkinter`, a wrapper around `tkinter` that provides a modern, high-DPI compatible interface.

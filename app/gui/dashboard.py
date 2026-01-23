@@ -1,9 +1,9 @@
 import customtkinter as ctk
 import os
 from .add_app_dialog import AddAppDialog
-from ..core.database import add_application, get_applications, get_stats, update_application_status
+from ..core.database import add_application, get_applications, get_stats, update_application_status, delete_application
 from ..core.file_ops import create_application_folder, open_folder
-from tkinter import messagebox
+from tkinter import messagebox, Menu
 
 class StatsCard(ctk.CTkFrame):
     def __init__(self, parent, title, value):
@@ -44,6 +44,9 @@ class AppListItem(ctk.CTkFrame):
                                            width=120)
         self.status_menu.pack(side="left", padx=10)
         
+        # Initialize status color
+        self._update_status_color(self.app_data['status'])
+        
         date_str = self.app_data['created_at'].split(' ')[0]
         ctk.CTkLabel(self, text=date_str, width=120, anchor="w").pack(side="left", padx=10)
 
@@ -59,6 +62,9 @@ class AppListItem(ctk.CTkFrame):
         for child in self.winfo_children():
             if not isinstance(child, (ctk.CTkButton, ctk.CTkOptionMenu)):
                 child.bind("<Double-1>", lambda e: self.on_open_folder())
+        
+        # Context Menu
+        self.setup_context_menu()
 
         if not exists:
             # Change color of labels if path is missing
@@ -68,7 +74,57 @@ class AppListItem(ctk.CTkFrame):
 
     def on_status_change(self, new_status):
         update_application_status(self.app_data['id'], new_status)
+        self._update_status_color(new_status)
         self.on_refresh()
+
+    def _update_status_color(self, status):
+        # Default Theme Colors (Dark Blue / Light Blue)
+        # We need to set both fg_color and button_color
+        if status == "Rejected":
+            # Red
+            color = "#C42B1C" 
+            hover = "#8F1F14"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        elif status == "Ghosted":
+            # Yellow/Orange
+            color = "#D97706" 
+            hover = "#B45309"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        elif status == "Offer":
+            # Green
+            color = "#10B981"
+            hover = "#059669"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        else:
+            # Default Blue
+            self.status_menu.configure(fg_color=["#3B8ED0", "#1F6AA5"], 
+                                     button_color=["#3B8ED0", "#1F6AA5"], 
+                                     button_hover_color=["#36719F", "#27577D"])
+
+    def setup_context_menu(self):
+        self.context_menu = Menu(self, tearoff=0)
+        self.context_menu.add_command(label="Delete Record", command=self.on_delete_record)
+        
+        # Bind right click to the frame itself
+        self.bind("<Button-3>", self.show_context_menu)
+        
+        # KEY FIX: Bind to all children too!
+        # If we don't do this, clicking on a Label inside the Frame won't trigger the menu.
+        for child in self.winfo_children():
+            if not isinstance(child, (ctk.CTkButton, ctk.CTkOptionMenu)):
+                child.bind("<Button-3>", self.show_context_menu)
+
+    def show_context_menu(self, event):
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
+
+    def on_delete_record(self):
+        if messagebox.askyesno("Confirm Delete", 
+                             f"Are you sure you want to delete the record for:\n\n{self.app_data['company_name']} - {self.app_data['role_name']}?\n\nNote: This only deletes the database record. The folder will NOT be deleted."):
+            delete_application(self.app_data['id'])
+            self.on_refresh()
 
     def on_open_folder(self):
         try:
@@ -122,6 +178,9 @@ class Dashboard(ctk.CTkFrame):
 
     def _auto_refresh(self):
         """Periodically refreshes the list ONLY if the application count has changed."""
+        if not self.winfo_exists():
+            return
+            
         # If you are typing in the search box, we pause the auto-refresh so we don't interrupt you.
         if not self.search_var.get():
             current_total, interviewing = get_stats()
@@ -164,6 +223,10 @@ class Dashboard(ctk.CTkFrame):
         # Reload Button
         self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
         self.reload_btn.pack(side="left")
+
+        # Analytics Button
+        self.analytics_btn = ctk.CTkButton(self.top_frame, text="Analytics", width=100, command=self.on_open_analytics)
+        self.analytics_btn.pack(side="left", padx=(10, 0))
 
         # Hidden sort variable to maintain logic
         self.sort_var = ctk.StringVar(value="Date")
@@ -267,6 +330,9 @@ class Dashboard(ctk.CTkFrame):
 
     def _render_chunk(self, index, chunk_size=30):
         """Renders items in batches to populate the scroll area without freezing."""
+        if not self.winfo_exists():
+            return
+
         if self._is_resizing:
             self._render_job = self.after(100, lambda: self._render_chunk(index, chunk_size))
             return
@@ -303,6 +369,9 @@ class Dashboard(ctk.CTkFrame):
     
     def _on_resize_complete(self):
         """Resume rendering after resize is complete"""
+        if not self.winfo_exists():
+            return
+            
         self._is_resizing = False
         # No need to re-render everything on resize since pack handles layout
 
@@ -333,6 +402,15 @@ class Dashboard(ctk.CTkFrame):
 
     def on_add_application(self):
         dialog = AddAppDialog(self.winfo_toplevel(), self.save_new_application)
+
+    def on_open_analytics(self):
+        from .analytics_view import AnalyticsDashboard
+        # Prevent multiple windows
+        if hasattr(self, 'analytics_window') and self.analytics_window.winfo_exists():
+            self.analytics_window.lift()
+            return
+        self.analytics_window = AnalyticsDashboard(self)
+        self.analytics_window.grab_set() # Modal-like behavior
 
     def on_open_settings(self):
         from .setup_wizard import SetupWizard

@@ -250,6 +250,72 @@ def remove_duplicates():
     conn.close()
     return removed_count
 
+def get_analytics_data(start_date=None, end_date=None):
+    """
+    Fetches analytics data for the given date range.
+    Returns:
+        status_counts: dict {status: count}
+        daily_counts: list of (date_str, count) sorted by date
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Status Counts
+    query = "SELECT status, COUNT(*) FROM applications"
+    params = []
+    
+    if start_date and end_date:
+        query += " WHERE date(created_at) BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+        
+    query += " GROUP BY status"
+    
+    cursor.execute(query, params)
+    status_counts = {row[0]: row[1] for row in cursor.fetchall()}
+    
+    # 2. Daily Counts (Applications over time)
+    # We strip the time part to group by day
+    query = "SELECT date(created_at) as day, COUNT(*) FROM applications"
+    params = []
+    
+    if start_date and end_date:
+        query += " WHERE date(created_at) BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+        
+    query += " GROUP BY day ORDER BY day ASC"
+    
+    cursor.execute(query, params)
+    daily_counts = cursor.fetchall() # Returns list of (day, count)
+    
+    conn.close()
+    return status_counts, daily_counts
+
+def get_daily_status_counts(start_date=None, end_date=None):
+    """
+    Fetches daily counts broken down by status.
+    Returns: list of (date_str, status, count) sorted by date
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    
+    # Query to group by both Day and Status
+    # This prepares data for a Stacked Bar Chart, or Multi-Line Chart.
+    # We want to know: "On Jan 1st, how many 'Rejected', how many 'Applied'?"
+    query = "SELECT date(created_at) as day, status, COUNT(*) FROM applications"
+    params = []
+    
+    if start_date and end_date:
+        query += " WHERE date(created_at) BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+        
+    query += " GROUP BY day, status ORDER BY day ASC"
+    
+    cursor.execute(query, params)
+    data = cursor.fetchall()
+    conn.close()
+    return data
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")

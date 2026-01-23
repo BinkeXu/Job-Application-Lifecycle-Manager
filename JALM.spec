@@ -7,13 +7,9 @@ block_cipher = None
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[
-        ('JALM.Service\\bin\\Release\\net8.0\\win-x64\\publish\\JALM.Service.exe', '.'),
-        ('JALM.Service\\bin\\Release\\net8.0\\win-x64\\publish\\e_sqlite3.dll', '.'),
-        ('JALM.Service\\bin\\Release\\net8.0\\win-x64\\publish\\appsettings.json', '.'),
-    ],
-    datas=[('c:\\python38\\lib\\site-packages\\customtkinter', 'customtkinter/')],
-    hiddenimports=[],
+    binaries=[],
+    datas=[('C:\\Python38\\lib\\site-packages\\customtkinter', 'customtkinter/'), ('JALM.Service\\bin\\Release\\net8.0\\win-x64\\publish\\JALM.Service.exe', '.')],
+    hiddenimports=['PIL._tkinter_guess_binary', 'matplotlib.backends.backend_tkagg'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

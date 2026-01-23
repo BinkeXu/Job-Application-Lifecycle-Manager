@@ -13,13 +13,21 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
     - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
+- **Advanced Analytics Dashboard**:
+    - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. Rejected vs. Offer).
+    - **Status Distribution**: Interactive pie charts with hover tooltips.
+    - **Compare Trends**: "Last 7 Days" vs "Last 30 Days" quick filters using a custom Calendar picker.
+    - **Summary Metrics**: Instant view of Offer / Interviewing rates.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
     - **Optimized Search**: Filter by company or role using the search bar (supports Enter key).
     - **Database Indexing**: Optimized SQLite queries inside each workspace.
 - **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.
-- **Sleek UI**: Dark-themed design with double-click to open folders and red-text warnings for missing paths.
+- **Sleek UI**:
+    - **Visual Status**: Color-coded buttons (Green for Offer, Purple for Interviewing, Red for Rejected).
+    - **Context Actions**: Right-click to delete records safely.
+    - **Dark-Themed**: Modern CustomTkinter design.
 
 ## 🛠️ Installation
 

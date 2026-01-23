@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("JALM.Service")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f9958c87bff4cc6775c871b92af286890a5a3df2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b377ad7afac661415ba86948fbee84ec2386e912")]
 [assembly: System.Reflection.AssemblyProductAttribute("JALM.Service")]
 [assembly: System.Reflection.AssemblyTitleAttribute("JALM.Service")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
