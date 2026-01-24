@@ -37,11 +37,22 @@ Job Application Lifecycle Manager/
 │   └── ConfigService.cs    # Hot-reloading configuration logic
 ├── app/                # Python Desktop Application (Python)
 │   ├── core/               # UI-specific business logic
-│   │   └── batch_export.py     # Batch file discovery & renaming logic
+│   │   ├── config_mgr.py   # Configuration loader
+│   │   ├── database.py     # SQLite wrapper & Status-Aware Analytics
+│   │   ├── file_ops.py     # Filesystem I/O & Status Discovery
+│   │   ├── service_mgr.py  # .NET Service Lifecycle Manager
+│   │   └── batch_export.py # Batch file discovery & renaming logic
 │   ├── gui/                # Dashboard and Setup components
-│   │   ├── export_dialog.py    # Selective export configuration
-│   │   └── report_dialog.py    # Detailed analytics drill-down
+│   │   ├── dashboard.py    # Main UI & Scan/Reload Orchestrator
+│   │   ├── analytics_view.py # Charting & Reporting Window
+│   │   ├── add_app_dialog.py # New Application Input Modal
+│   │   ├── calendar_dialog.py # Custom Date Picker
+│   │   ├── interview_manager.py # Interview Notes Modal
+│   │   ├── setup_wizard.py # Initial Configuration Wizard
+│   │   ├── export_dialog.py # Selective export configuration
+│   │   └── report_dialog.py # Detailed analytics drill-down
 │   └── utils/              # UI helper utilities
+│       └── tooltip.py      # Hover tooltip widget
 ├── config.json         # Shared global state
 └── [Your Root Directory]/
     ├── jalm_config.json    # Workspace templates & User info
@@ -96,6 +107,10 @@ To support two high-speed processes accessing the same SQLite database, JALM enf
 ### Hybrid Sync Logic
 1.  **SmartWatcher (.NET)**: Monitors the workspace at Depth 2 (`Company/Role`). It uses a **500ms debounce** to ensure that folder renames (e.g., from "New Folder") are finalized before syncing to the DB.
 2.  **Auto-Refresh (Python)**: The UI polls the database count every 10 seconds. It only triggers a full re-render if the count has changed, ensuring background syncs appear instantly without disrupting user search.
+3.  **Status Discovery (Python)**:
+    - During a **"Scan & Reload"**, JALM inspects application folders for evidence of progress (e.g., existing `interviews.txt` files).
+    - **Automatic Promotion**: If an application is marked as 'Applied' but interview notes are found on disk, the system automatically promotes the status to **'Interviewed'**.
+    - This ensures that manual file operations or external edits are correctly reflected in the application lifecycle state.
 
 ### Automated Document Generation
 The `.NET` service handles document preparation headlessly:
