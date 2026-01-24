@@ -353,12 +353,12 @@ def get_detailed_analytics(start_date=None, end_date=None):
 
     # 2. Interviews Secured
     # Calculates the number of unique applications created in this date range that 
-    # successfully resulted in at least one interview entry.
+    # successfully resulted in an interview (marked as Interviewed or has note records).
     query_interviews = f"""
         SELECT COUNT(DISTINCT a.id) 
         FROM applications a
-        JOIN interviews i ON a.id = i.app_id
-        {base_where}
+        LEFT JOIN interviews i ON a.id = i.app_id
+        {base_where} {" AND " if base_where else " WHERE "} (a.status = 'Interviewed' OR i.id IS NOT NULL)
     """
     cursor.execute(query_interviews, params)
     metrics["interviews_secured"] = cursor.fetchone()[0]
@@ -367,8 +367,8 @@ def get_detailed_analytics(start_date=None, end_date=None):
     query_roles_list = f"""
         SELECT DISTINCT a.company_name, a.role_name
         FROM applications a
-        JOIN interviews i ON a.id = i.app_id
-        {base_where}
+        LEFT JOIN interviews i ON a.id = i.app_id
+        {base_where} {" AND " if base_where else " WHERE "} (a.status = 'Interviewed' OR i.id IS NOT NULL)
         ORDER BY a.company_name ASC
     """
     cursor.execute(query_roles_list, params)

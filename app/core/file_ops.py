@@ -70,7 +70,8 @@ def open_folder(path):
 def scan_for_existing_applications(root_path):
     """
     Scans the root path for existing Company/Role folder structures.
-    Returns a list of dicts: [{'company': '...', 'role': '...', 'path': '...'}]
+    Performs 'Status Discovery' by checking for key files (like interviews.txt).
+    Returns a list of application metadata including a 'has_interviews' flag.
     """
     root = Path(root_path)
     if not root.exists() or not root.is_dir():
@@ -82,11 +83,15 @@ def scan_for_existing_applications(root_path):
         if company_dir.is_dir():
             for role_dir in company_dir.iterdir():
                 if role_dir.is_dir():
+                    # Check for indicators of application status on disk
+                    has_interviews = (role_dir / "interviews.txt").exists()
+                    
                     found_apps.append({
                         'company': company_dir.name,
                         'role': role_dir.name,
                         'path': str(role_dir.absolute()),
-                        'created_at': get_folder_creation_time(role_dir)
+                        'created_at': get_folder_creation_time(role_dir),
+                        'has_interviews': has_interviews
                     })
     return found_apps
 

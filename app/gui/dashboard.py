@@ -73,6 +73,10 @@ class AppListItem(ctk.CTkFrame):
                     child.configure(text_color="red")
 
     def on_status_change(self, new_status):
+        """
+        Updates the application status both in the database and the UI.
+        Ensures that analytics modules will generate reports based on the newest state.
+        """
         update_application_status(self.app_data['id'], new_status)
         self._update_status_color(new_status)
         self.on_refresh()
@@ -455,12 +459,34 @@ class Dashboard(ctk.CTkFrame):
         for app in found_apps:
             key = (app['company'], app['role'])
             if key not in db_map:
-                add_application(app['company'], app['role'], app['path'], app.get('created_at'))
+                # Determine initial status
+                # SYNC LOGIC: Check for existence of 'interviews.txt' on disk.
+                # This file acts as a flag indicating the application has reached the interview stage.
+                is_interviewed = app.get('has_interviews', False)
+                # Add to DB (returns new ID)
+                new_id = add_application(app['company'], app['role'], app['path'], app.get('created_at'))
+                
+                # If discovered as interviewed on disk, update the record immediately
+                if is_interviewed:
+                     from ..core.database import update_application_status
+                     update_application_status(new_id, 'Interviewed')
+                
                 added_count += 1
             else:
-                # Update date for existing app
+                # Update date for existing app to stay in sync with filesystem
                 app_id = db_map[key]
                 update_application_date(app_id, app.get('created_at'))
+                
+                # STATUS SYNCHRONIZATION: Promote status to 'Interviewed' if notes were found on disk.
+                # This ensures that external updates (like manual file movement) are reflected in the UI.
+                if app.get('has_interviews'):
+                    from ..core.database import get_application_by_id, update_application_status
+                    current_record = get_application_by_id(app_id)
+                    # Only promote if currently marked as 'Applied' to respect manual rejections/offers
+                    if current_record and current_record['status'] == 'Applied':
+                        update_application_status(app_id, 'Interviewed')
+                        updated_count += 1
+                
                 updated_count += 1
 
         # 2. Remove duplicated records (same folder path)
