@@ -1,4 +1,6 @@
 import atexit
+import signal
+import sys
 import customtkinter as ctk
 from app.core.config_mgr import is_config_complete
 from app.gui.setup_wizard import SetupWizard
@@ -30,6 +32,9 @@ class JALMApp(ctk.CTk):
         # 'atexit' ensures that when the user closes this Python app, 
         # the background .NET service is also stopped automatically.
         atexit.register(self.service_mgr.stop_service)
+        
+        # Bind close handler to ensure clean shutdown
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # 5. Initialization Logic
         # If the user hasn't finished the initial setup (name, root folder, etc.), 
@@ -56,7 +61,34 @@ class JALMApp(ctk.CTk):
         self.dashboard = Dashboard(self)
         self.dashboard.pack(fill="both", expand=True)
 
+    def on_closing(self):
+        """Handle window close event with proper cleanup."""
+        try:
+            # IMPORTANT: Destroy all children first. This triggers the <Destroy> event
+            # in the Dashboard, which cancels all active background timers.
+            # This prevents "invalid command name" errors after the app exits.
+            for widget in self.winfo_children():
+                widget.destroy()
+        except Exception:
+            pass
+        
+        # Quit the mainloop first to stop processing events, then destroy the main window.
+        self.quit()
+        self.destroy()
+
 # This check prevents code from running if this file is imported elsewhere.
 if __name__ == "__main__":
     app = JALMApp()
+    
+    # Define a handler for system signals like Ctrl+C (SIGINT).
+    # This ensures that even if the app is killed from the terminal,
+    # the proper cleanup sequence is still triggered.
+    def signal_handler(sig, frame):
+        # Trigger the same cleanup logic used for normal window closing.
+        app.on_closing()
+        sys.exit(0)
+    
+    # Register the signal handler.
+    signal.signal(signal.SIGINT, signal_handler)
+    
     app.mainloop() # Start the UI event loop!

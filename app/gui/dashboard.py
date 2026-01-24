@@ -3,7 +3,7 @@ import os
 from .add_app_dialog import AddAppDialog
 from ..core.database import add_application, get_applications, get_stats, update_application_status, delete_application
 from ..core.file_ops import create_application_folder, open_folder
-from tkinter import messagebox, Menu
+from tkinter import messagebox, Menu, filedialog
 
 class StatsCard(ctk.CTkFrame):
     def __init__(self, parent, title, value):
@@ -145,6 +145,7 @@ class Dashboard(ctk.CTkFrame):
         self._search_timer = None
         self._render_job = None
         self._resize_timer = None
+        self._refresh_job = None
         self._is_resizing = False
         self._last_size = None
         self.sort_order = "DESC"
@@ -165,6 +166,9 @@ class Dashboard(ctk.CTkFrame):
         
         # Bind resize event for throttling
         self.bind("<Configure>", self._on_resize)
+        
+        # Bind destroy event for cleanup
+        self.bind("<Destroy>", self._on_destroy_event)
 
     def _setup_auto_refresh(self):
         """
@@ -174,7 +178,9 @@ class Dashboard(ctk.CTkFrame):
         """
         total, _ = get_stats()
         self._last_app_count = total
-        self.after(5000, self._auto_refresh)
+        total, _ = get_stats()
+        self._last_app_count = total
+        self._refresh_job = self.after(5000, self._auto_refresh)
 
     def _auto_refresh(self):
         """Periodically refreshes the list ONLY if the application count has changed."""
@@ -195,7 +201,8 @@ class Dashboard(ctk.CTkFrame):
                 self.active_apps_card.update_value(interviewing)
         
         # Check again in 10 seconds.
-        self.after(10000, self._auto_refresh)
+        # Check again in 10 seconds.
+        self._refresh_job = self.after(10000, self._auto_refresh)
 
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
@@ -273,6 +280,9 @@ class Dashboard(ctk.CTkFrame):
         
         self.add_btn = ctk.CTkButton(self.action_frame, text="+ Add Application", command=self.on_add_application)
         self.add_btn.pack(side="left")
+
+        self.export_btn = ctk.CTkButton(self.action_frame, text="Export Results", fg_color="#555555", width=120, command=self.on_export)
+        self.export_btn.pack(side="left", padx=20)
 
         self.settings_btn = ctk.CTkButton(self.action_frame, text="Settings", width=100, command=self.on_open_settings)
         self.settings_btn.pack(side="right")
@@ -506,4 +516,50 @@ class Dashboard(ctk.CTkFrame):
             
             messagebox.showinfo("Success", f"Application for {company} created successfully!")
         except Exception as e:
+            messagebox.showinfo("Success", f"Application for {company} created successfully!")
+        except Exception as e:
             messagebox.showerror("Error", f"Failed to create application: {e}")
+
+    def on_export(self):
+        """Opens the export dialog."""
+        # 1. Get current list (filtered by search)
+        apps_to_export = self._all_apps
+        if not apps_to_export:
+            messagebox.showinfo("Export", "No applications found to export.")
+            return
+
+        search_query = self.search_var.get()
+        
+        # 2. Open Dialog
+        from .export_dialog import ExportDialog
+        from .export_dialog import ExportDialog
+        ExportDialog(self.winfo_toplevel(), apps_to_export, search_query)
+
+    def destroy(self):
+        """Manual destroy override."""
+        self._cancel_timers()
+        super().destroy()
+
+    def _on_destroy_event(self, event):
+        """Handles the <Destroy> event to clean up timers if the widget is destroyed."""
+        if event.widget == self:
+            self._cancel_timers()
+
+    def _cancel_timers(self):
+        """Helper to cancel all active timers."""
+        try:
+            if self._refresh_job:
+                self.after_cancel(self._refresh_job)
+                self._refresh_job = None
+            if self._render_job:
+                self.after_cancel(self._render_job)
+                self._render_job = None
+            if self._resize_timer:
+                self.after_cancel(self._resize_timer)
+                self._resize_timer = None
+            if self._search_timer:
+                self.after_cancel(self._search_timer)
+                self._search_timer = None
+        except Exception:
+            # Ignore errors if timers are already invalid
+            pass

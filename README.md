@@ -16,8 +16,12 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **Advanced Analytics Dashboard**:
     - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. Rejected vs. Offer).
     - **Status Distribution**: Interactive pie charts with hover tooltips.
-    - **Compare Trends**: "Last 7 Days" vs "Last 30 Days" quick filters using a custom Calendar picker.
-    - **Summary Metrics**: Instant view of Offer / Interviewing rates.
+    - **Detailed Reporting**: Generate a comprehensive **Summary Report** including Success Rate (Interviews / Total), and top Role/Company breakdowns.
+    - **Quick Filters**: "Last 7 Days", **"Last 14 Days"**, and "Last 30 Days" shortcuts using a custom Calendar picker.
+- **Batch Document Export**:
+    - **Selective Backup**: Bulk-export your CVs, JDs, or both for your current search results.
+    - **Standardized Renaming**: Automatically renames files for professional organization (e.g., `JobTitle cv 1.pdf`, `JobTitle jd 1.txt`).
+    - **Smart Collisions**: Automatically creates timestamped subfolders if exporting to a non-empty directory.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
@@ -75,6 +79,7 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 - **Add Application**: Click `+ Add Application`. JALM automatically appends an index if a duplicate role exists in the same company. You can also paste the **Job Description** here to save it as a text file.
 - **Open Folder**: Simply **double-click** any row to jump to that application's local directory. (Red text indicates a missing folder).
 - **Interviews**: Click the `Interviews` button to log notes for each round. Notes are saved to the database and appended to an `interviews.txt` file in the folder.
+- **Batch Export**: Click **Export Results** to copy all CVs and JDs for your currently filtered list into a single folder. You can choose to export only CVs or only JDs using the popup dialog.
 - **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
 - **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
 

@@ -37,7 +37,10 @@ Job Application Lifecycle Manager/
 │   └── ConfigService.cs    # Hot-reloading configuration logic
 ├── app/                # Python Desktop Application (Python)
 │   ├── core/               # UI-specific business logic
+│   │   └── batch_export.py     # Batch file discovery & renaming logic
 │   ├── gui/                # Dashboard and Setup components
+│   │   ├── export_dialog.py    # Selective export configuration
+│   │   └── report_dialog.py    # Detailed analytics drill-down
 │   └── utils/              # UI helper utilities
 ├── config.json         # Shared global state
 └── [Your Root Directory]/
@@ -120,6 +123,13 @@ Calculated in the background to keep the UI snappy:
 - **Matplotlib Integration**: Uses `FigureCanvasTkAgg` to embed Matplotlib charts directly into the CustomTkinter window.
 - **Custom Tooltips**: Implements a manual event handler (`motion_notify_event`) to display data annotations when hovering over chart elements (wedges/bars), as `mplcursors` is not used.
 - **Calendar Dialog**: A custom `CTkToplevel` popup (`calendar_dialog.py`) providing a month-view date picker, replacing heavy external dependencies like `tkcalendar`.
+- **Advanced Reporting**: Features a **"View Report"** function that triggers a modal (`report_dialog.py`). This view calculates an application-to-interview **Success Rate** for any chosen date range.
+
+### Batch Document Export (`batch_export.py`)
+Provides a robust utility for gathering documents for external use or audits:
+- **Heuristic File Matching**: Uses keyword-based searches ("CV", "Resume", "JD", "Description") and file extension prioritization (.pdf, .docx) to find relevant job files inside user folders.
+- **Sequential Renaming**: Prevents naming collisions by appending indices based on document type (e.g., `Engineer cv 1.pdf`, `Engineer cv 2.pdf`).
+- **Conflict Management**: If the user selects a non-empty directory, JALM generates a unique subfolder (e.g., `Export_20260124_221005`) to prevent data mixing.
 
 ## 🎨 UI Framework
 

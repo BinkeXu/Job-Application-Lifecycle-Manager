@@ -316,6 +316,68 @@ def get_daily_status_counts(start_date=None, end_date=None):
     conn.close()
     return data
 
+def get_detailed_analytics(start_date=None, end_date=None):
+    """
+    Returns a detailed drill-down of application stats for the reporting view.
+    Includes:
+    - Total Count
+    - Interviews Secured (Count of apps that have ANY interview logs)
+    - By Company (Top 10)
+    - By Role (Top 10)
+    - By Status
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    params = []
+    base_where = ""
+    if start_date and end_date:
+        base_where = " WHERE date(created_at) BETWEEN ? AND ?"
+        params.extend([start_date, end_date])
+
+    metrics = {
+        "total_apps": 0,
+        "interviews_secured": 0,
+        "by_company": [],
+        "by_role": [],
+        "by_status": []
+    }
+
+    # 1. Total Applications Count
+    cursor.execute(f"SELECT COUNT(*) FROM applications{base_where}", params)
+    metrics["total_apps"] = cursor.fetchone()[0]
+
+    # 2. Interviews Secured
+    # Calculates the number of unique applications created in this date range that 
+    # successfully resulted in at least one interview entry.
+    query_interviews = f"""
+        SELECT COUNT(DISTINCT a.id) 
+        FROM applications a
+        JOIN interviews i ON a.id = i.app_id
+        {base_where}
+    """
+    cursor.execute(query_interviews, params)
+    metrics["interviews_secured"] = cursor.fetchone()[0]
+
+    # 3. Frequency Breakdown by Company
+    # Returns the employer names and their respective application counts, sorted by frequency.
+    query_company = f"SELECT company_name, COUNT(*) as c FROM applications{base_where} GROUP BY company_name ORDER BY c DESC"
+    cursor.execute(query_company, params)
+    metrics["by_company"] = cursor.fetchall()
+
+    # 4. Frequency Breakdown by Role Name
+    query_role = f"SELECT role_name, COUNT(*) as c FROM applications{base_where} GROUP BY role_name ORDER BY c DESC"
+    cursor.execute(query_role, params)
+    metrics["by_role"] = cursor.fetchall()
+
+    # 5. Application Status Distribution
+    query_status = f"SELECT status, COUNT(*) as c FROM applications{base_where} GROUP BY status ORDER BY c DESC"
+    cursor.execute(query_status, params)
+    metrics["by_status"] = cursor.fetchall()
+
+    conn.close()
+    return metrics
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully.")

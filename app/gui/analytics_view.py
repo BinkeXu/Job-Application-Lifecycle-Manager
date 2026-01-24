@@ -55,11 +55,18 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         self.last_7_btn = ctk.CTkButton(self.toolbar, text="Last 7 Days", width=80, fg_color="gray", command=self.set_last_7_days)
         self.last_7_btn.pack(side="left", padx=5)
         
+        self.last_14_btn = ctk.CTkButton(self.toolbar, text="Last 14 Days", width=80, fg_color="gray", command=self.set_last_14_days)
+        self.last_14_btn.pack(side="left", padx=5)
+        
         self.last_30_btn = ctk.CTkButton(self.toolbar, text="Last 30 Days", width=90, fg_color="gray", command=self.set_last_30_days)
         self.last_30_btn.pack(side="left", padx=5)
         
         self.clear_btn = ctk.CTkButton(self.toolbar, text="All Time", width=80, fg_color="gray", command=self.clear_dates)
         self.clear_btn.pack(side="left", padx=5)
+
+        # View Report Button (Primary Action Style)
+        self.report_btn = ctk.CTkButton(self.toolbar, text="📄 View Report", width=100, command=self.open_summary_report)
+        self.report_btn.pack(side="right", padx=10)
 
         # 2. Charts Area
         self.charts_frame = ctk.CTkFrame(self)
@@ -111,7 +118,16 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         self.end_date_var.set(end.strftime("%Y-%m-%d"))
         self.refresh_charts()
 
+    def set_last_14_days(self):
+        """Quick-filter shortcut to set the date range to the previous 14 days."""
+        end = datetime.now()
+        start = end - timedelta(days=14)
+        self.start_date_var.set(start.strftime("%Y-%m-%d"))
+        self.end_date_var.set(end.strftime("%Y-%m-%d"))
+        self.refresh_charts()
+
     def set_last_30_days(self):
+        """Quick-filter shortcut to set the date range to the previous 30 days."""
         end = datetime.now()
         start = end - timedelta(days=30)
         self.start_date_var.set(start.strftime("%Y-%m-%d"))
@@ -267,6 +283,25 @@ class AnalyticsDashboard(ctk.CTkToplevel):
                         self.update_tooltip(self.annot2, f"{status}: {int(height)}", event)
                     break
 
+
+    def open_summary_report(self):
+        """
+        Gathers detailed analytics data for the current date range and 
+        displays it in a structured ReportDialog modal.
+        """
+        start = self.start_date_var.get().strip()
+        end = self.end_date_var.get().strip()
+        
+        # Query the database for granular metrics based on selected dates.
+        from ..core.database import get_detailed_analytics
+        metrics = get_detailed_analytics(start if start else None, end if end else None)
+        
+        # Prepare a readable date range string for the report title.
+        range_text = f"{start} to {end}" if(start and end) else "All Time"
+        
+        # Open the specialized reporting component.
+        from .report_dialog import ReportDialog
+        ReportDialog(self, metrics, range_text)
 
     def validate_date(self, date_text):
         try:
