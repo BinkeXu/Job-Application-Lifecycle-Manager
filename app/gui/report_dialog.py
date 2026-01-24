@@ -32,7 +32,7 @@ class ReportDialog(ctk.CTkToplevel):
         rate = (interviews / total * 100) if total > 0 else 0
         
         self._create_card(self.summary_frame, "Total Applications", total, "#3B8ED0")
-        self._create_card(self.summary_frame, "Interviews Secured", interviews, "#8B5CF6")
+        self._create_card(self.summary_frame, "Interviewed", interviews, "#8B5CF6")
         self._create_card(self.summary_frame, "Success Rate", f"{rate:.1f}%", "#10B981")
         
         # 2. Detailed Breakdown Tables (Categorized Lists)
@@ -43,14 +43,20 @@ class ReportDialog(ctk.CTkToplevel):
         self.tables_frame.grid_columnconfigure(0, weight=1)
         self.tables_frame.grid_columnconfigure(1, weight=1)
         
-        # Status Distribution: Shows current pipeline state.
-        self._create_table(self.tables_frame, "By Status", self.metrics["by_status"], row=0, col=0, colspan=2)
+        # 1. Interviewed Roles Table (Full Width) - The specific roles that resulted in interviews
+        # We bring this to the top as requested.
+        row_idx = 0
+        if self.metrics["interview_roles_list"]:
+            self._create_interview_roles_table(self.tables_frame, "Interviewed Roles", self.metrics["interview_roles_list"], row=row_idx, col=0, colspan=2)
+            row_idx += 1
+
+        # 2. Status Table (Full Width)
+        self._create_table(self.tables_frame, "By Status", self.metrics["by_status"], row=row_idx, col=0, colspan=2)
+        row_idx += 1
         
-        # Company Breakdown: Identifies where the user is most active.
-        self._create_table(self.tables_frame, "Top Companies", self.metrics["by_company"], row=1, col=0)
-        
-        # Role Breakdown: Shows application volume by job title.
-        self._create_table(self.tables_frame, "Top Roles", self.metrics["by_role"], row=1, col=1)
+        # 3. Company & Role Tables (Side by Side)
+        self._create_table(self.tables_frame, "Top Companies", self.metrics["by_company"], row=row_idx, col=0)
+        self._create_table(self.tables_frame, "Top Roles", self.metrics["by_role"], row=row_idx, col=1)
 
     def _create_card(self, parent, title, value, color):
         """Helper to create color-coded metric cards at the top."""
@@ -89,3 +95,28 @@ class ReportDialog(ctk.CTkToplevel):
                 name_lbl.pack(side="left", padx=5, expand=True, fill="x")
                 
                 ctk.CTkLabel(row_frame, text=str(count), width=50).pack(side="right", padx=5)
+
+    def _create_interview_roles_table(self, parent, title, data, row, col, colspan=1):
+        """Helper to create a specialized table for roles that have interview records."""
+        frame = ctk.CTkFrame(parent)
+        frame.grid(row=row, column=col, columnspan=colspan, sticky="nsew", padx=10, pady=10)
+        
+        ctk.CTkLabel(frame, text=title, font=("Arial", 16, "bold"), text_color="#8B5CF6").pack(pady=10, anchor="w", padx=15)
+        
+        # Header Row
+        header = ctk.CTkFrame(frame, height=30, fg_color="transparent")
+        header.pack(fill="x", padx=10)
+        ctk.CTkLabel(header, text="Company", font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
+        ctk.CTkLabel(header, text="Role", font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
+        
+        # Dynamic Rows
+        for item in data:
+            # item is (company, role)
+            company = item[0]
+            role = item[1]
+            
+            row_frame = ctk.CTkFrame(frame, fg_color="transparent", height=30)
+            row_frame.pack(fill="x", padx=10, pady=2)
+            
+            ctk.CTkLabel(row_frame, text=str(company), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
+            ctk.CTkLabel(row_frame, text=str(role), anchor="w").pack(side="left", padx=5, expand=True, fill="x")

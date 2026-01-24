@@ -162,7 +162,7 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # Color Map
         color_map = {
             "Applied": "#3B8ED0",
-            "Interviewing": "#8B5CF6", # Purple
+            "Interviewed": "#8B5CF6", # Purple
             "Rejected": "#EF4444", # Red
             "Offer": "#10B981", # Green
             "Ghosted": "#F59E0B" # Orange

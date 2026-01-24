@@ -38,7 +38,7 @@ class AppListItem(ctk.CTkFrame):
         # Status dropdown
         self.status_var = ctk.StringVar(value=self.app_data['status'])
         self.status_menu = ctk.CTkOptionMenu(self, 
-                                           values=["Applied", "Interviewing", "Rejected", "Offer", "Ghosted"],
+                                           values=["Applied", "Interviewed", "Rejected", "Offer", "Ghosted"],
                                            variable=self.status_var,
                                            command=self.on_status_change,
                                            width=120)
@@ -94,6 +94,11 @@ class AppListItem(ctk.CTkFrame):
             # Green
             color = "#10B981"
             hover = "#059669"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        elif status == "Interviewed":
+            # Purple
+            color = "#8B5CF6"
+            hover = "#7C3AED"
             self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
         else:
             # Default Blue
@@ -245,7 +250,7 @@ class Dashboard(ctk.CTkFrame):
         self.total_apps_card = StatsCard(self.stats_frame, "Total Applications", 0)
         self.total_apps_card.pack(side="left", padx=10)
         
-        self.active_apps_card = StatsCard(self.stats_frame, "Interviewing", 0)
+        self.active_apps_card = StatsCard(self.stats_frame, "Interviewed", 0)
         self.active_apps_card.pack(side="left", padx=10)
 
         self.ghosted_apps_card = StatsCard(self.stats_frame, "Ghosted (30d)", 0)

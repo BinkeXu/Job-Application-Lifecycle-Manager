@@ -71,6 +71,9 @@ def init_db():
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_apps_role ON applications(role_name)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_apps_created ON applications(created_at)')
 
+    # Migration: Rename 'Interviewing' to 'Interviewed'
+    cursor.execute("UPDATE applications SET status = 'Interviewed' WHERE status = 'Interviewing'")
+
     conn.commit()
     conn.close()
 
@@ -127,7 +130,7 @@ def get_stats():
     cursor.execute('SELECT COUNT(*) FROM applications')
     total = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM applications WHERE status = 'Interviewing'")
+    cursor.execute("SELECT COUNT(*) FROM applications WHERE status = 'Interviewed'")
     interviewing = cursor.fetchone()[0]
     
     conn.close()
@@ -338,6 +341,7 @@ def get_detailed_analytics(start_date=None, end_date=None):
     metrics = {
         "total_apps": 0,
         "interviews_secured": 0,
+        "interview_roles_list": [],
         "by_company": [],
         "by_role": [],
         "by_status": []
@@ -358,6 +362,17 @@ def get_detailed_analytics(start_date=None, end_date=None):
     """
     cursor.execute(query_interviews, params)
     metrics["interviews_secured"] = cursor.fetchone()[0]
+
+    # 2b. List of specific roles that had interviews
+    query_roles_list = f"""
+        SELECT DISTINCT a.company_name, a.role_name
+        FROM applications a
+        JOIN interviews i ON a.id = i.app_id
+        {base_where}
+        ORDER BY a.company_name ASC
+    """
+    cursor.execute(query_roles_list, params)
+    metrics["interview_roles_list"] = cursor.fetchall()
 
     # 3. Frequency Breakdown by Company
     # Returns the employer names and their respective application counts, sorted by frequency.
