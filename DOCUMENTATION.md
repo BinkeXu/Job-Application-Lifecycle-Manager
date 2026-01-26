@@ -94,7 +94,10 @@ Stores notes related to specific interview rounds.
 ### Configuration Management (`config_mgr.py`)
 JALM uses a two-tier configuration system:
 - **Global Config (`config.json`)**: Stored in the app root, it only tracks the `active_root` path.
-- **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
+- **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace, including:
+    - `cv_template_path`: The default CV template.
+    - `cover_letter_template_path`: The default Cover Letter template.
+    - `additional_cv_templates`: A dictionary for role-specific templates (e.g., `{"Data Analyst": "C:/path/to/DA_CV.docx"}`).
 
 ### Database Management (`database.py`)
 JALM implements **Workspace Isolation**. Each "Applications Root" contains its own `jalm_apps.db`. Switching the root directory in the UI dynamically rebinds the database connection to the new workspace's DB file.
@@ -114,7 +117,7 @@ To support two high-speed processes accessing the same SQLite database, JALM enf
 
 ### Automated Document Generation
 The `.NET` service handles document preparation headlessly:
-- **CV/Cover Letter cloning**: Triggered instantly on folder creation.
+- **CV/Cover Letter cloning**: Triggered instantly on folder creation. Use the Python UI's dropdown to override the default CV template with a role-specific alternative.
 - **Date Replacement**: In the Cover Letter, the service scans for the `{Date}` placeholder and injects the current date in a professional format (`10, January 2026`).
 - **Nomenclature**: Strictly follows the `[UserName]_[Type]_[RoleName].docx` convention for consistent professional branding.
 

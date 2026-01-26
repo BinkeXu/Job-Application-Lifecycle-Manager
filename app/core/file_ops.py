@@ -3,11 +3,19 @@ import shutil
 from pathlib import Path
 from .config_mgr import load_config, get_active_root
 
-def create_application_folder(company, role, job_description=None):
+def create_application_folder(company, role, job_description=None, cv_template_path=None):
     """
     Creates a folder for a new job application and copies templates.
     Also saves the job description as a text file if provided.
-    Returns the absolute path to the created folder.
+    
+    Args:
+        company (str): Name of the company.
+        role (str): Job role/title.
+        job_description (str, optional): Text of the job description.
+        cv_template_path (str, optional): Overrides the default CV template if provided.
+        
+    Returns:
+        tuple: (Absolute path to the created folder, creation timestamp).
     """
     config = load_config()
     root_path = get_active_root()
@@ -15,7 +23,9 @@ def create_application_folder(company, role, job_description=None):
         raise ValueError("Active root directory is not set.")
         
     root_dir = Path(root_path)
-    cv_template = Path(config.get("cv_template_path"))
+    
+    # Use selected CV template or default from config
+    cv_template = Path(cv_template_path) if cv_template_path else Path(config.get("cv_template_path"))
     cover_letter_template = Path(config.get("cover_letter_template_path"))
 
     if not root_dir.exists():

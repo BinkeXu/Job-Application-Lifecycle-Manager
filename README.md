@@ -8,6 +8,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **Hybrid Intelligence Service (.NET)**: A high-performance background service that handles heavy lifting like real-time syncing, document automation, and analytics.
 - **Real-Time Folder Sync**: Automatically detects when you create, rename, or delete folders in your workspace and syncs them to the database instantly with smart debouncing.
 - **Automated Document Generation**: Headlessly clones your CV and Cover Letter templates into new application folders. It automatically updates the date in your Cover Letter (e.g., "10, January 2026").
+- **Multiple CV Templates**: Manage different CV versions (e.g., Data Engineer vs. Data Analyst) in Settings and select the most relevant one when adding a new application.
 - **Live Analytics & Export**:
     - **Ghosting Tracking**: Automatically flags applications with no activity for > 30 days.
     - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
@@ -76,7 +77,7 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 - **Scan & Reload**: Click this to sync your dashboard with your folder structure. It imports new folders and removes "broken" links for folders you've deleted manually.
 - **List Limit**: By default, JALM shows the 20 most recent applications. Toggle **Show All** to view your entire history.
 - **Sorting**: Click the **Company** or **Date** headers to toggle sort direction.
-- **Add Application**: Click `+ Add Application`. JALM automatically appends an index if a duplicate role exists in the same company. You can also paste the **Job Description** here to save it as a text file.
+- **Add Application**: Click `+ Add Application`. Select your preferred **CV Template** from the dropdown, enter company details, and paste the **Job Description**. JALM automatically appends an index if a duplicate role exists in the same company.
 - **Open Folder**: Simply **double-click** any row to jump to that application's local directory. (Red text indicates a missing folder).
 - **Interviews**: Click the `Interviews` button to log notes for each round. Notes are saved to the database and appended to an `interviews.txt` file in the folder.
 - **Batch Export**: Click **Export Results** to copy all CVs and JDs for your currently filtered list into a single folder. You can choose to export only CVs or only JDs using the popup dialog.

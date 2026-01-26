@@ -1,14 +1,23 @@
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 from ..core.config_mgr import save_config, load_config, get_active_root, set_active_root
 from ..core.database import init_db
 import os
 
+
+
+class AutoScrollableFrame(ctk.CTkScrollableFrame):
+    """Custom scrollable frame that properly handles scrollbar visibility."""
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        # CTkScrollableFrame handles scrollbar automatically
+        # No need for custom logic
+
 class SetupWizard(ctk.CTkToplevel):
     def __init__(self, parent, on_complete_callback):
         super().__init__(parent)
-        self.title("JALM - Initial Setup")
-        self.geometry("500x500")
+        self.title("JALM - Settings")
+        self.geometry("600x700") # Increased size to fit more settings
         self.on_complete_callback = on_complete_callback
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -19,39 +28,49 @@ class SetupWizard(ctk.CTkToplevel):
 
         self.active_root = get_active_root()
         self.config = load_config()
+        self.additional_templates = self.config.get("additional_cv_templates", {}).copy()
 
         self.setup_ui()
 
     def setup_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(6, weight=1)
+        self.grid_rowconfigure(1, weight=1)  # Row 1 (scroll_frame) expands
 
-        label = ctk.CTkLabel(self, text="Job Application Lifecycle Manager Setup", font=("Arial", 20, "bold"))
+        label = ctk.CTkLabel(self, text="JALM Settings & Setup", font=("Arial", 20, "bold"))
         label.grid(row=0, column=0, pady=20, padx=20)
         
+        # Scrollable container for all settings
+        self.scroll_frame = AutoScrollableFrame(self)
+        self.scroll_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 10))
+        self.scroll_frame.grid_columnconfigure(0, weight=1)
+        
+        # Use PACK inside the scroll frame to ensure items stack at the top
         # User Name
         self.user_name_var = ctk.StringVar(value=self.config.get("user_name", ""))
-        self.create_name_selector(1, "Your Full Name (for template naming):", self.user_name_var)
+        self.create_name_selector("Your Full Name (for template naming):", self.user_name_var)
 
         # Root Directory
         self.root_dir_var = ctk.StringVar(value=self.active_root if self.active_root else "")
-        self.create_path_selector(2, "Applications Root Folder:", self.root_dir_var, self.select_root_dir)
+        self.create_path_selector("Applications Root Folder:", self.root_dir_var, self.select_root_dir)
 
-        # CV Template
+        # CV Template (Default)
         self.cv_path_var = ctk.StringVar(value=self.config.get("cv_template_path", ""))
-        self.create_path_selector(3, "CV Template (.docx):", self.cv_path_var, self.select_cv_template)
+        self.create_path_selector("Default CV Template (.docx):", self.cv_path_var, self.select_cv_template)
 
         # Cover Letter Template
         self.cl_path_var = ctk.StringVar(value=self.config.get("cover_letter_template_path", ""))
-        self.create_path_selector(4, "Cover Letter Template (.docx):", self.cl_path_var, self.select_cover_letter_template)
+        self.create_path_selector("Cover Letter Template (.docx):", self.cl_path_var, self.select_cover_letter_template)
 
-        # Save Button
-        save_btn = ctk.CTkButton(self, text="Complete Setup", command=self.save_and_close)
-        save_btn.grid(row=5, column=0, pady=30, padx=20)
+        # Additional CV Templates Section
+        self.create_additional_templates_section()
 
-    def create_path_selector(self, row, label_text, var, command):
-        frame = ctk.CTkFrame(self, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="ew", padx=20, pady=10)
+        # Save Button (outside scroll_frame)
+        save_btn = ctk.CTkButton(self, text="Save Settings", command=self.save_and_close)
+        save_btn.grid(row=2, column=0, pady=20, padx=20)
+
+    def create_path_selector(self, label_text, var, command):
+        frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        frame.pack(side="top", fill="x", padx=10, pady=10)
         frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(frame, text=label_text).grid(row=0, column=0, sticky="w")
@@ -62,15 +81,77 @@ class SetupWizard(ctk.CTkToplevel):
         btn = ctk.CTkButton(frame, text="Browse", width=80, command=command)
         btn.grid(row=1, column=1)
 
-    def create_name_selector(self, row, label_text, var):
-        frame = ctk.CTkFrame(self, fg_color="transparent")
-        frame.grid(row=row, column=0, sticky="ew", padx=20, pady=10)
+    def create_name_selector(self, label_text, var):
+        frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        frame.pack(side="top", fill="x", padx=10, pady=10)
         frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(frame, text=label_text).grid(row=0, column=0, sticky="w")
         
         entry = ctk.CTkEntry(frame, textvariable=var, placeholder_text="e.g. John Doe")
         entry.grid(row=1, column=0, sticky="ew", padx=(0, 10))
+
+    def create_additional_templates_section(self):
+        frame = ctk.CTkFrame(self.scroll_frame)
+        frame.pack(side="top", fill="x", padx=10, pady=20)
+        frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(frame, text="Additional CV Templates", font=("Arial", 14, "bold")).grid(row=0, column=0, sticky="w", padx=10, pady=5)
+        
+        self.templates_list_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        self.templates_list_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        self.templates_list_frame.grid_columnconfigure(0, weight=1)
+        
+        self.refresh_templates_list()
+        
+        btn_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        
+        add_btn = ctk.CTkButton(btn_frame, text="+ Add Template", width=120, command=self.add_additional_template)
+        add_btn.pack(side="left", padx=5)
+
+    def refresh_templates_list(self):
+        # Clear existing
+        for widget in self.templates_list_frame.winfo_children():
+            widget.destroy()
+            
+        if not self.additional_templates:
+            ctk.CTkLabel(self.templates_list_frame, text="No additional templates added.", text_color="gray").grid(row=0, column=0, pady=5)
+            return
+
+        for i, (name, path) in enumerate(self.additional_templates.items()):
+            row_frame = ctk.CTkFrame(self.templates_list_frame, fg_color="transparent")
+            row_frame.pack(side="top", fill="x", pady=2)
+            row_frame.grid_columnconfigure(0, weight=1)
+            
+            ctk.CTkLabel(row_frame, text=f"• {name}:", font=("Arial", 12, "bold")).pack(side="left", padx=(0, 5))
+            
+            # Truncate path for display
+            display_path = (path[:40] + '...') if len(path) > 40 else path
+            ctk.CTkLabel(row_frame, text=display_path, font=("Arial", 10)).pack(side="left")
+            
+            remove_btn = ctk.CTkButton(row_frame, text="Remove", width=60, height=20, fg_color="#C42B1C", hover_color="#8F1F14",
+                                      command=lambda n=name: self.remove_additional_template(n))
+            remove_btn.pack(side="right", padx=5)
+
+    def add_additional_template(self):
+        name = simpledialog.askstring("Template Name", "Enter a name for this template (e.g. Data Engineer):")
+        if not name:
+            return
+        
+        if name in self.additional_templates or name == "Default":
+            messagebox.showwarning("Invalid Name", "This template name already exists.")
+            return
+            
+        path = filedialog.askopenfilename(filetypes=[("Word Documents", "*.docx")])
+        if path:
+            self.additional_templates[name] = path
+            self.refresh_templates_list()
+
+    def remove_additional_template(self, name):
+        if name in self.additional_templates:
+            del self.additional_templates[name]
+            self.refresh_templates_list()
 
     def select_root_dir(self):
         path = filedialog.askdirectory()
@@ -88,8 +169,10 @@ class SetupWizard(ctk.CTkToplevel):
             if existing_config.get("user_name"):
                 self.user_name_var.set(existing_config["user_name"])
             
-            # Revert if not saving yet? No, actually it's fine to leave it pointed there
-            # as it will be finalized in save_and_close
+            # Update additional templates if they exist in the new root's config
+            if existing_config.get("additional_cv_templates"):
+                self.additional_templates = existing_config["additional_cv_templates"].copy()
+                self.refresh_templates_list()
 
     def select_cv_template(self):
         path = filedialog.askopenfilename(filetypes=[("Word Documents", "*.docx")])
@@ -111,7 +194,8 @@ class SetupWizard(ctk.CTkToplevel):
         new_config = {
             "user_name": self.user_name_var.get().strip(),
             "cv_template_path": self.cv_path_var.get(),
-            "cover_letter_template_path": self.cl_path_var.get()
+            "cover_letter_template_path": self.cl_path_var.get(),
+            "additional_cv_templates": self.additional_templates
         }
         save_config(new_config)
         
@@ -140,5 +224,10 @@ class SetupWizard(ctk.CTkToplevel):
             messagebox.showinfo("Import Complete", f"Found and imported {imported_count} existing applications!")
 
     def on_closing(self):
-        if messagebox.askokcancel("Quit", "Setup is required to use JALM. Do you want to quit?"):
-            self.master.destroy()
+        # Only allow closing without setup if config is already complete
+        from ..core.config_mgr import is_config_complete
+        if is_config_complete():
+            self.destroy()
+        else:
+            if messagebox.askokcancel("Quit", "Setup is required to use JALM. Do you want to quit?"):
+                self.master.destroy()

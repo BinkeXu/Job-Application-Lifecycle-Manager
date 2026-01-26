@@ -8,7 +8,8 @@ WORKSPACE_CONFIG_NAME = "jalm_config.json"
 DEFAULT_CONFIG = {
     "user_name": "",
     "cv_template_path": "",
-    "cover_letter_template_path": ""
+    "cover_letter_template_path": "",
+    "additional_cv_templates": {}  # Dictionary mapping template names to their absolute paths
 }
 
 def get_global_config_path():
