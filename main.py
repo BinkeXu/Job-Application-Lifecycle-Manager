@@ -15,8 +15,8 @@ class JALMApp(ctk.CTk):
         
         # 1. Basic Window Setup
         self.title("Job Application Lifecycle Manager (JALM)")
-        self.geometry("1000x600")
-        self.minsize(800, 500)  # Prevent the window from being resized too small
+        self.geometry("1300x800")
+        self.minsize(1100, 600)  # Prevent the window from being resized too small
 
         # 2. Database Preparation
         # This creates the necessary SQLite tables if they don't exist yet.

@@ -19,7 +19,7 @@ class AnalyticsDashboard(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Application Analytics")
-        self.geometry("1000x800")
+        self.geometry("1200x800")
         
         # Set window icon if available (optional)
         # self.iconbitmap("icon.ico")

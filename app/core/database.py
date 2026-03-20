@@ -370,7 +370,13 @@ def get_detailed_analytics(start_date=None, end_date=None):
 
     metrics = {
         "total_apps": 0,
-        "interviews_secured": 0,
+        "interviews_secured": 0, # Reached Interview stage (Interviewed or Offer)
+        "oa_count": 0,
+        "hr_call_count": 0,
+        "interviewed_count": 0,
+        "offers_count": 0,
+        "oa_roles_list": [],
+        "hr_call_roles_list": [],
         "interview_roles_list": [],
         "by_company": [],
         "by_role": [],
@@ -381,41 +387,58 @@ def get_detailed_analytics(start_date=None, end_date=None):
     cursor.execute(f"SELECT COUNT(*) FROM applications{base_where}", params)
     metrics["total_apps"] = cursor.fetchone()[0]
 
-    # 2. Interviews Secured
+    # 2. Granular Status Counts (Current Status)
+    cursor.execute(f"SELECT status, COUNT(*) FROM applications{base_where} GROUP BY status", params)
+    status_dict = {row[0]: row[1] for row in cursor.fetchall()}
+    
+    metrics["oa_count"] = status_dict.get("OA", 0)
+    metrics["hr_call_count"] = status_dict.get("HR Call", 0)
+    metrics["interviewed_count"] = status_dict.get("Interviewed", 0)
+    metrics["offers_count"] = status_dict.get("Offer", 0)
+
+    # 3. Interviews Secured
     # Calculates the number of unique applications created in this date range that 
-    # successfully resulted in an interview (marked as Interviewed or has note records).
+    # successfully resulted in an interview (marked as Interviewed/Offer or has note records).
     query_interviews = f"""
         SELECT COUNT(DISTINCT a.id) 
         FROM applications a
         LEFT JOIN interviews i ON a.id = i.app_id
-        {base_where} {" AND " if base_where else " WHERE "} (a.status IN ('Interviewed', 'OA', 'HR Call', 'Offer') OR i.id IS NOT NULL)
+        {base_where} {' AND ' if base_where else ' WHERE '} (a.status IN ('Interviewed', 'Offer') OR i.id IS NOT NULL)
+        AND a.status NOT IN ('OA', 'HR Call')
     """
     cursor.execute(query_interviews, params)
     metrics["interviews_secured"] = cursor.fetchone()[0]
+    # 4a. List of OA Roles
+    cursor.execute(f"SELECT company_name, role_name FROM applications{base_where} {' AND ' if base_where else ' WHERE '} status = 'OA' ORDER BY company_name ASC", params)
+    metrics["oa_roles_list"] = cursor.fetchall()
 
-    # 2b. List of specific roles that had interviews
+    # 4b. List of HR Call Roles
+    cursor.execute(f"SELECT company_name, role_name FROM applications{base_where} {' AND ' if base_where else ' WHERE '} status = 'HR Call' ORDER BY company_name ASC", params)
+    metrics["hr_call_roles_list"] = cursor.fetchall()
+
+    # 4c. List of specific roles that had interviews
     query_roles_list = f"""
         SELECT DISTINCT a.company_name, a.role_name
         FROM applications a
         LEFT JOIN interviews i ON a.id = i.app_id
-        {base_where} {" AND " if base_where else " WHERE "} (a.status IN ('Interviewed', 'OA', 'HR Call', 'Offer') OR i.id IS NOT NULL)
+        {base_where} {" AND " if base_where else " WHERE "} (a.status IN ('Interviewed', 'Offer') OR i.id IS NOT NULL)
+        AND a.status NOT IN ('OA', 'HR Call')
         ORDER BY a.company_name ASC
     """
     cursor.execute(query_roles_list, params)
     metrics["interview_roles_list"] = cursor.fetchall()
 
-    # 3. Frequency Breakdown by Company
-    # Returns the employer names and their respective application counts, sorted by frequency.
+    # 5. Frequency Breakdown by Company
     query_company = f"SELECT company_name, COUNT(*) as c FROM applications{base_where} GROUP BY company_name ORDER BY c DESC"
     cursor.execute(query_company, params)
     metrics["by_company"] = cursor.fetchall()
 
-    # 4. Frequency Breakdown by Role Name
+    # 6. Frequency Breakdown by Role Name
     query_role = f"SELECT role_name, COUNT(*) as c FROM applications{base_where} GROUP BY role_name ORDER BY c DESC"
     cursor.execute(query_role, params)
     metrics["by_role"] = cursor.fetchall()
 
-    # 5. Application Status Distribution
+    # 7. Application Status Distribution
     query_status = f"SELECT status, COUNT(*) as c FROM applications{base_where} GROUP BY status ORDER BY c DESC"
     cursor.execute(query_status, params)
     metrics["by_status"] = cursor.fetchall()

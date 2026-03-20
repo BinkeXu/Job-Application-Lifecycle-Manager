@@ -8,14 +8,14 @@ class ReportDialog(ctk.CTkToplevel):
     def __init__(self, parent, metrics, date_range_text):
         super().__init__(parent)
         self.title(f"Analytics Report ({date_range_text})")
-        self.geometry("800x600")
+        self.geometry("1100x800")
         
         self.metrics = metrics
         
         # UI Polish: Center the report dialog.
         self.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (800 // 2)
-        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (600 // 2)
+        x = parent.winfo_rootx() + (parent.winfo_width() // 2) - (1100 // 2)
+        y = parent.winfo_rooty() + (parent.winfo_height() // 2) - (800 // 2)
         self.geometry(f"+{x}+{y}")
         
         self.setup_ui()
@@ -27,27 +27,59 @@ class ReportDialog(ctk.CTkToplevel):
         self.summary_frame.pack(fill="x", padx=20, pady=20)
         
         total = self.metrics["total_apps"]
-        interviews = self.metrics["interviews_secured"]
-        # Success Rate is the percentage of applications that progressed to an interview.
-        rate = (interviews / total * 100) if total > 0 else 0
+        oa = self.metrics["oa_count"]
+        hr = self.metrics["hr_call_count"]
+        interviewed = self.metrics["interviews_secured"]
+        offers = self.metrics["offers_count"]
         
-        self._create_card(self.summary_frame, "Total Applications", total, "#3B8ED0")
-        self._create_card(self.summary_frame, "Interviewed", interviews, "#8B5CF6")
-        self._create_card(self.summary_frame, "Success Rate", f"{rate:.1f}%", "#10B981")
+        # Success Rate is the percentage of applications that successfully progressed to an interview.
+        rate = (interviewed / total * 100) if total > 0 else 0
+        
+        # Split cards into two rows for better horizontal space and readability
+        self.summary_row1 = ctk.CTkFrame(self.summary_frame, fg_color="transparent")
+        self.summary_row1.pack(fill="x", pady=(0, 10))
+        
+        self.summary_row2 = ctk.CTkFrame(self.summary_frame, fg_color="transparent")
+        self.summary_row2.pack(fill="x")
+        
+        # Top Row: Overarching Metrics
+        self._create_card(self.summary_row1, "Total Apps", total, "#3B8ED0")
+        self._create_card(self.summary_row1, "Success Rate", f"{rate:.1f}%", "#10B981")
+        
+        # Bottom Row: Funnel Pipeline
+        self._create_card(self.summary_row2, "OA", oa, "#0891B2")
+        self._create_card(self.summary_row2, "HR Call", hr, "#DB2777")
+        self._create_card(self.summary_row2, "Interviewed", interviewed, "#8B5CF6")
         
         # 2. Detailed Breakdown Tables (Categorized Lists)
         self.tables_frame = ctk.CTkScrollableFrame(self)
-        self.tables_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        self.tables_frame.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+        
+        # Bottom Actions
+        self.close_btn = ctk.CTkButton(self, text="Close Report", width=150, fg_color="gray", hover_color="#4B4B4B", command=self.destroy)
+        self.close_btn.pack(side="bottom", pady=(0, 20))
         
         # Use a 2-column grid to organize the breakdown tables.
         self.tables_frame.grid_columnconfigure(0, weight=1)
         self.tables_frame.grid_columnconfigure(1, weight=1)
         
-        # 1. Interviewed Roles Table (Full Width) - The specific roles that resulted in interviews
-        # We bring this to the top as requested.
+        # 1. Specialized Roles Tables (Full Width)
         row_idx = 0
+        
+        def format_roles(roles_list):
+            # Formats [ (Company, Role) ] into [ ("Company - Role", "-") ]
+            return [(f"{row[0]} - {row[1]}", "-") for row in roles_list]
+        
         if self.metrics["interview_roles_list"]:
-            self._create_interview_roles_table(self.tables_frame, "Interviewed Roles", self.metrics["interview_roles_list"], row=row_idx, col=0, colspan=2)
+            self._create_table(self.tables_frame, "Interviewed Roles", format_roles(self.metrics["interview_roles_list"]), row=row_idx, col=0, colspan=2, header_name="Application", title_color="#8B5CF6")
+            row_idx += 1
+
+        if self.metrics.get("oa_roles_list"):
+            self._create_table(self.tables_frame, "OA Roles", format_roles(self.metrics["oa_roles_list"]), row=row_idx, col=0, colspan=2, header_name="Application", title_color="#0891B2")
+            row_idx += 1
+
+        if self.metrics.get("hr_call_roles_list"):
+            self._create_table(self.tables_frame, "HR Call Roles", format_roles(self.metrics["hr_call_roles_list"]), row=row_idx, col=0, colspan=2, header_name="Application", title_color="#DB2777")
             row_idx += 1
 
         # 2. Status Table (Full Width)
@@ -61,17 +93,20 @@ class ReportDialog(ctk.CTkToplevel):
     def _create_card(self, parent, title, value, color):
         """Helper to create color-coded metric cards at the top."""
         card = ctk.CTkFrame(parent, fg_color=color, corner_radius=10)
-        card.pack(side="left", fill="both", expand=True, padx=10)
+        card.pack(side="left", fill="both", expand=True, padx=8)
         
         ctk.CTkLabel(card, text=title, text_color="white", font=("Arial", 14)).pack(pady=(15, 5))
         ctk.CTkLabel(card, text=str(value), text_color="white", font=("Arial", 28, "bold")).pack(pady=(0, 15))
 
-    def _create_table(self, parent, title, data, row, col, colspan=1, header_name="Name"):
+    def _create_table(self, parent, title, data, row, col, colspan=1, header_name="Name", title_color=None):
         """Helper to create structured data tables with headers and rows."""
         frame = ctk.CTkFrame(parent)
         frame.grid(row=row, column=col, columnspan=colspan, sticky="nsew", padx=10, pady=10)
         
-        ctk.CTkLabel(frame, text=title, font=("Arial", 16, "bold")).pack(pady=10,anchor="w", padx=15)
+        title_lbl = ctk.CTkLabel(frame, text=title, font=("Arial", 16, "bold"))
+        if title_color:
+            title_lbl.configure(text_color=title_color)
+        title_lbl.pack(pady=10,anchor="w", padx=15)
         
         # Header Row
         header = ctk.CTkFrame(frame, height=30, fg_color="transparent")
@@ -84,7 +119,7 @@ class ReportDialog(ctk.CTkToplevel):
              ctk.CTkLabel(frame, text="No data available", text_color="gray").pack(pady=20)
         else:
             for item in data:
-                # item is a sqlite3.Row object
+                # item is a sqlite3.Row object or tuple
                 name = item[0]
                 count = item[1]
                 
@@ -95,28 +130,3 @@ class ReportDialog(ctk.CTkToplevel):
                 name_lbl.pack(side="left", padx=5, expand=True, fill="x")
                 
                 ctk.CTkLabel(row_frame, text=str(count), width=50, anchor="e").pack(side="right", padx=5)
-
-    def _create_interview_roles_table(self, parent, title, data, row, col, colspan=1):
-        """Helper to create a specialized table for roles that have interview records."""
-        frame = ctk.CTkFrame(parent)
-        frame.grid(row=row, column=col, columnspan=colspan, sticky="nsew", padx=10, pady=10)
-        
-        ctk.CTkLabel(frame, text=title, font=("Arial", 16, "bold"), text_color="#8B5CF6").pack(pady=10, anchor="w", padx=15)
-        
-        # Header Row
-        header = ctk.CTkFrame(frame, height=30, fg_color="transparent")
-        header.pack(fill="x", padx=10)
-        ctk.CTkLabel(header, text="Company", font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
-        ctk.CTkLabel(header, text="Role", font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
-        
-        # Dynamic Rows
-        for item in data:
-            # item is (company, role)
-            company = item[0]
-            role = item[1]
-            
-            row_frame = ctk.CTkFrame(frame, fg_color="transparent", height=30)
-            row_frame.pack(fill="x", padx=10, pady=2)
-            
-            ctk.CTkLabel(row_frame, text=str(company), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
-            ctk.CTkLabel(row_frame, text=str(role), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
