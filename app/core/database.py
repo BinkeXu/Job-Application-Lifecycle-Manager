@@ -104,7 +104,8 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
     # Map friendly sort names to column names
     sort_map = {
         "Date": "created_at",
-        "Company": "company_name"
+        "Company": "company_name",
+        "Status": "status"
     }
     column = sort_map.get(sort_by, "created_at")
     
@@ -116,7 +117,21 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
         search_val = f"%{search_query}%"
         params.extend([search_val, search_val])
     
-    query_str += f' ORDER BY {column} {sort_order}'
+    if column == "status":
+        query_str += f""" ORDER BY 
+            CASE status
+                WHEN 'Applied' THEN 1
+                WHEN 'OA' THEN 2
+                WHEN 'HR Call' THEN 3
+                WHEN 'Interviewed' THEN 4
+                WHEN 'Offer' THEN 5
+                WHEN 'Rejected' THEN 6
+                WHEN 'Ghosted' THEN 7
+                ELSE 8
+            END {sort_order}
+        """
+    else:
+        query_str += f' ORDER BY {column} {sort_order}'
     
     cursor.execute(query_str, params)
     apps = cursor.fetchall()
@@ -130,7 +145,7 @@ def get_stats():
     cursor.execute('SELECT COUNT(*) FROM applications')
     total = cursor.fetchone()[0]
     
-    cursor.execute("SELECT COUNT(*) FROM applications WHERE status = 'Interviewed'")
+    cursor.execute("SELECT COUNT(*) FROM applications WHERE status IN ('Interviewed', 'HR Call', 'OA')")
     interviewing = cursor.fetchone()[0]
     
     conn.close()
@@ -141,6 +156,18 @@ def update_application_status(app_id, status):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('UPDATE applications SET status = ? WHERE id = ?', (status, app_id))
+    conn.commit()
+    conn.close()
+
+def update_application_paths(app_id, company_name, role_name, folder_path):
+    """Updates the company, role, and folder path for an existing application."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE applications 
+        SET company_name = ?, role_name = ?, folder_path = ? 
+        WHERE id = ?
+    ''', (company_name, role_name, folder_path, app_id))
     conn.commit()
     conn.close()
 
@@ -358,7 +385,7 @@ def get_detailed_analytics(start_date=None, end_date=None):
         SELECT COUNT(DISTINCT a.id) 
         FROM applications a
         LEFT JOIN interviews i ON a.id = i.app_id
-        {base_where} {" AND " if base_where else " WHERE "} (a.status = 'Interviewed' OR i.id IS NOT NULL)
+        {base_where} {" AND " if base_where else " WHERE "} (a.status IN ('Interviewed', 'OA', 'HR Call', 'Offer') OR i.id IS NOT NULL)
     """
     cursor.execute(query_interviews, params)
     metrics["interviews_secured"] = cursor.fetchone()[0]
@@ -368,7 +395,7 @@ def get_detailed_analytics(start_date=None, end_date=None):
         SELECT DISTINCT a.company_name, a.role_name
         FROM applications a
         LEFT JOIN interviews i ON a.id = i.app_id
-        {base_where} {" AND " if base_where else " WHERE "} (a.status = 'Interviewed' OR i.id IS NOT NULL)
+        {base_where} {" AND " if base_where else " WHERE "} (a.status IN ('Interviewed', 'OA', 'HR Call', 'Offer') OR i.id IS NOT NULL)
         ORDER BY a.company_name ASC
     """
     cursor.execute(query_roles_list, params)

@@ -58,6 +58,22 @@ def create_application_folder(company, role, job_description=None, cv_template_p
     creation_time = get_folder_creation_time(str(app_folder.absolute()))
     return str(app_folder.absolute()), creation_time
 
+def write_jalm_id(folder_path, app_id):
+    """Writes the database application ID to a hidden .jalm_id file in the folder."""
+    import os
+    id_file = Path(folder_path) / ".jalm_id"
+    with open(id_file, "w", encoding="utf-8") as f:
+        f.write(str(app_id))
+    
+    # Try to hide the file on Windows
+    if os.name == 'nt':
+        import ctypes
+        try:
+            FILE_ATTRIBUTE_HIDDEN = 0x02
+            ctypes.windll.kernel32.SetFileAttributesW(str(id_file), FILE_ATTRIBUTE_HIDDEN)
+        except Exception:
+            pass
+
 def get_folder_creation_time(path):
     """Returns the creation time of a folder formatted for SQLite."""
     import time
@@ -96,12 +112,25 @@ def scan_for_existing_applications(root_path):
                     # Check for indicators of application status on disk
                     has_interviews = (role_dir / "interviews.txt").exists()
                     
+                    # Read .jalm_id if it exists
+                    jalm_id = None
+                    id_file = role_dir / ".jalm_id"
+                    if id_file.exists():
+                        try:
+                            with open(id_file, "r", encoding="utf-8") as f:
+                                content = f.read().strip()
+                                if content.isdigit():
+                                    jalm_id = int(content)
+                        except Exception:
+                            pass
+
                     found_apps.append({
                         'company': company_dir.name,
                         'role': role_dir.name,
                         'path': str(role_dir.absolute()),
                         'created_at': get_folder_creation_time(role_dir),
-                        'has_interviews': has_interviews
+                        'has_interviews': has_interviews,
+                        'jalm_id': jalm_id
                     })
     return found_apps
 

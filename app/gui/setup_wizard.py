@@ -209,19 +209,12 @@ class SetupWizard(ctk.CTkToplevel):
         self.destroy()
 
     def import_existing_folders(self, root_path):
-        from ..core.file_ops import scan_for_existing_applications
-        from ..core.database import add_application, application_exists
+        from ..core.sync_mgr import sync_workspace
         
-        found_apps = scan_for_existing_applications(root_path)
-        imported_count = 0
+        added, updated, removed, dups = sync_workspace(root_path)
         
-        for app in found_apps:
-            if not application_exists(app['company'], app['role']):
-                add_application(app['company'], app['role'], app['path'], app.get('created_at'))
-                imported_count += 1
-        
-        if imported_count > 0:
-            messagebox.showinfo("Import Complete", f"Found and imported {imported_count} existing applications!")
+        if added > 0 or updated > 0:
+            messagebox.showinfo("Import Complete", f"Imported {added} existing applications and synced {updated} updates.")
 
     def on_closing(self):
         # Only allow closing without setup if config is already complete

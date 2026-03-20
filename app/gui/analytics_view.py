@@ -61,6 +61,9 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         self.last_30_btn = ctk.CTkButton(self.toolbar, text="Last 30 Days", width=90, fg_color="gray", command=self.set_last_30_days)
         self.last_30_btn.pack(side="left", padx=5)
         
+        self.ytd_btn = ctk.CTkButton(self.toolbar, text="YTD", width=50, fg_color="gray", command=self.set_ytd)
+        self.ytd_btn.pack(side="left", padx=5)
+        
         self.clear_btn = ctk.CTkButton(self.toolbar, text="All Time", width=80, fg_color="gray", command=self.clear_dates)
         self.clear_btn.pack(side="left", padx=5)
 
@@ -107,6 +110,9 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # 3. Summary Footer
         self.footer_label = ctk.CTkLabel(self, text="", font=("Arial", 12))
         self.footer_label.pack(side="bottom", pady=10)
+        
+        # Set Default to Year-to-Date
+        self.set_ytd(refresh=False)
 
     def open_cal(self, variable):
         CalendarDialog(self, lambda date: variable.set(date), variable.get())
@@ -133,6 +139,15 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         self.start_date_var.set(start.strftime("%Y-%m-%d"))
         self.end_date_var.set(end.strftime("%Y-%m-%d"))
         self.refresh_charts()
+
+    def set_ytd(self, refresh=True):
+        """Sets the date range to the start of the current year (Year-To-Date)."""
+        end = datetime.now()
+        start = datetime(end.year, 1, 1)
+        self.start_date_var.set(start.strftime("%Y-%m-%d"))
+        self.end_date_var.set(end.strftime("%Y-%m-%d"))
+        if refresh:
+            self.refresh_charts()
 
     def clear_dates(self):
         self.start_date_var.set("")
@@ -162,6 +177,8 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # Color Map
         color_map = {
             "Applied": "#3B8ED0",
+            "OA": "#0891B2", # Teal
+            "HR Call": "#DB2777", # Pink
             "Interviewed": "#8B5CF6", # Purple
             "Rejected": "#EF4444", # Red
             "Offer": "#10B981", # Green
@@ -198,6 +215,19 @@ class AnalyticsDashboard(ctk.CTkToplevel):
                     data_map[day] = {}
                 data_map[day][status] = count
                 all_statuses.add(status)
+            
+            # Fill missing dates to make the timeline continuous
+            if data_map:
+                dates_sorted_temp = sorted(data_map.keys())
+                start_date_obj = datetime.strptime(dates_sorted_temp[0], "%Y-%m-%d")
+                end_date_obj = datetime.strptime(dates_sorted_temp[-1], "%Y-%m-%d")
+                
+                current_date = start_date_obj
+                while current_date <= end_date_obj:
+                    day_str = current_date.strftime("%Y-%m-%d")
+                    if day_str not in data_map:
+                        data_map[day_str] = {}
+                    current_date += timedelta(days=1)
             
             dates_sorted = sorted(data_map.keys())
             x_dates = [datetime.strptime(d, "%Y-%m-%d") for d in dates_sorted]
@@ -251,37 +281,53 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         Updated logic to handle hovering over charts.
         Detects if mouse is over a Pie Wedge or Bar Rect and displays the appropriate tooltip.
         """
-        # 1. Clear existing tooltips if not hovering (default state)
-        if self.annot.get_visible():
-            self.annot.set_visible(False)
-            self.fig.canvas.draw_idle()
-        if self.annot2.get_visible():
-            self.annot2.set_visible(False)
-            self.fig.canvas.draw_idle()
-
-        # 2. Check if hovering over Pie Chart (ax1)
+        is_hovering = False
+        hover_text = ""
+        annot_to_use = None
+        
+        # 1. Check if hovering over Pie Chart (ax1)
         if event.inaxes == self.ax1:
             for wedge in self.ax1.patches:
                 cont, _ = wedge.contains(event)
                 if cont:
-                    # We stored 'my_label' and 'my_value' on the artist objects during refresh_charts
                     label = getattr(wedge, 'my_label', '')
                     val = getattr(wedge, 'my_value', '')
                     if label:
-                         self.update_tooltip(self.annot, f"{label}: {val}", event)
+                        hover_text = f"{label}: {val}"
+                        annot_to_use = self.annot
+                        is_hovering = True
                     break
         
-        # 3. Check if hovering over Bar Chart (ax2)
+        # 2. Check if hovering over Bar Chart (ax2)
         elif event.inaxes == self.ax2:
             for bar in self.ax2.patches:
                 cont, _ = bar.contains(event)
                 if cont:
-                    # We stored '_label_status' on the bar objects during refresh_charts
                     status = getattr(bar, '_label_status', 'Unknown')
                     height = bar.get_height()
                     if height > 0: # Only show tooltip for visible bars
-                        self.update_tooltip(self.annot2, f"{status}: {int(height)}", event)
+                        hover_text = f"{status}: {int(height)}"
+                        annot_to_use = self.annot2
+                        is_hovering = True
                     break
+        
+        # 3. State management to prevent flickering
+        if is_hovering and annot_to_use:
+            self.update_tooltip(annot_to_use, hover_text, event)
+            other_annot = self.annot2 if annot_to_use == self.annot else self.annot
+            if other_annot.get_visible():
+                other_annot.set_visible(False)
+        else:
+            needs_redraw = False
+            if self.annot.get_visible():
+                self.annot.set_visible(False)
+                needs_redraw = True
+            if self.annot2.get_visible():
+                self.annot2.set_visible(False)
+                needs_redraw = True
+                
+            if needs_redraw:
+                self.fig.canvas.draw_idle()
 
 
     def open_summary_report(self):

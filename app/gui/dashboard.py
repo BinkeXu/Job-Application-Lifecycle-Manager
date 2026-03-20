@@ -38,7 +38,7 @@ class AppListItem(ctk.CTkFrame):
         # Status dropdown
         self.status_var = ctk.StringVar(value=self.app_data['status'])
         self.status_menu = ctk.CTkOptionMenu(self, 
-                                           values=["Applied", "Interviewed", "Rejected", "Offer", "Ghosted"],
+                                           values=["Applied", "OA", "HR Call", "Interviewed", "Offer", "Rejected", "Ghosted"],
                                            variable=self.status_var,
                                            command=self.on_status_change,
                                            width=120)
@@ -98,6 +98,16 @@ class AppListItem(ctk.CTkFrame):
             # Green
             color = "#10B981"
             hover = "#059669"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        elif status == "OA":
+            # Teal / Cyan
+            color = "#0891B2"
+            hover = "#0E7490"
+            self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
+        elif status == "HR Call":
+            # Pink / Rose
+            color = "#DB2777"
+            hover = "#BE185D"
             self.status_menu.configure(fg_color=color, button_color=color, button_hover_color=hover)
         elif status == "Interviewed":
             # Purple
@@ -254,7 +264,7 @@ class Dashboard(ctk.CTkFrame):
         self.total_apps_card = StatsCard(self.stats_frame, "Total Applications", 0)
         self.total_apps_card.pack(side="left", padx=10)
         
-        self.active_apps_card = StatsCard(self.stats_frame, "Interviewed", 0)
+        self.active_apps_card = StatsCard(self.stats_frame, "Active (OA+HR+Int)", 0)
         self.active_apps_card.pack(side="left", padx=10)
 
         self.ghosted_apps_card = StatsCard(self.stats_frame, "Ghosted (30d)", 0)
@@ -273,7 +283,10 @@ class Dashboard(ctk.CTkFrame):
         self.comp_header.bind("<Button-1>", lambda e: self.on_header_click("Company"))
 
         ctk.CTkLabel(self.header_frame, text="Role", font=("Arial", 12, "bold"), width=200, anchor="w").pack(side="left", padx=10)
-        ctk.CTkLabel(self.header_frame, text="Status", font=("Arial", 12, "bold"), width=120, anchor="w").pack(side="left", padx=10)
+        
+        self.status_header = ctk.CTkLabel(self.header_frame, text="Status ↕", font=("Arial", 12, "bold"), width=120, anchor="w", cursor="hand2")
+        self.status_header.pack(side="left", padx=10)
+        self.status_header.bind("<Button-1>", lambda e: self.on_header_click("Status"))
         
         self.date_header = ctk.CTkLabel(self.header_frame, text="Date ↕", font=("Arial", 12, "bold"), width=120, anchor="w", cursor="hand2")
         self.date_header.pack(side="left", padx=10)
@@ -413,9 +426,12 @@ class Dashboard(ctk.CTkFrame):
                                    "↓" if (column == "Company" and self.sort_order == "DESC") else "↕")
         date_text = "Date " + ("↑" if (column == "Date" and self.sort_order == "ASC") else 
                                 "↓" if (column == "Date" and self.sort_order == "DESC") else "↕")
+        status_text = "Status " + ("↑" if (column == "Status" and self.sort_order == "ASC") else 
+                                "↓" if (column == "Status" and self.sort_order == "DESC") else "↕")
         
         self.comp_header.configure(text=comp_text)
         self.date_header.configure(text=date_text)
+        self.status_header.configure(text=status_text)
         
         self.refresh_list()
 
@@ -436,71 +452,15 @@ class Dashboard(ctk.CTkFrame):
         dialog = SetupWizard(self.winfo_toplevel(), self.refresh_data)
 
     def on_reload(self):
-        """Scans the root folder for any new directories and removes records for missing folders."""
+        """Scans the root folder for any new directories and syncs with the database using sync_mgr."""
         from ..core.config_mgr import get_active_root
-        from ..core.file_ops import scan_for_existing_applications
-        from ..core.database import add_application, get_applications, delete_application, remove_duplicates, update_application_date
+        from ..core.sync_mgr import sync_workspace
         
         root_path = get_active_root()
         if not root_path:
             return
 
-        # 1. Check for new folders on disk and add to DB
-        # Also update timestamps for existing apps to ensure accuracy
-        found_apps = scan_for_existing_applications(root_path)
-        added_count = 0
-        updated_count = 0
-        
-        # Get current DB state
-        current_db_apps = get_applications()
-        # Create a lookup map by (company, role)
-        db_map = {(app['company_name'], app['role_name']): app['id'] for app in current_db_apps}
-
-        for app in found_apps:
-            key = (app['company'], app['role'])
-            if key not in db_map:
-                # Determine initial status
-                # SYNC LOGIC: Check for existence of 'interviews.txt' on disk.
-                # This file acts as a flag indicating the application has reached the interview stage.
-                is_interviewed = app.get('has_interviews', False)
-                # Add to DB (returns new ID)
-                new_id = add_application(app['company'], app['role'], app['path'], app.get('created_at'))
-                
-                # If discovered as interviewed on disk, update the record immediately
-                if is_interviewed:
-                     from ..core.database import update_application_status
-                     update_application_status(new_id, 'Interviewed')
-                
-                added_count += 1
-            else:
-                # Update date for existing app to stay in sync with filesystem
-                app_id = db_map[key]
-                update_application_date(app_id, app.get('created_at'))
-                
-                # STATUS SYNCHRONIZATION: Promote status to 'Interviewed' if notes were found on disk.
-                # This ensures that external updates (like manual file movement) are reflected in the UI.
-                if app.get('has_interviews'):
-                    from ..core.database import get_application_by_id, update_application_status
-                    current_record = get_application_by_id(app_id)
-                    # Only promote if currently marked as 'Applied' to respect manual rejections/offers
-                    if current_record and current_record['status'] == 'Applied':
-                        update_application_status(app_id, 'Interviewed')
-                        updated_count += 1
-                
-                updated_count += 1
-
-        # 2. Remove duplicated records (same folder path)
-        # We do this after scanning to catch any duplicates that might have been created
-        duplicates_removed = remove_duplicates()
-
-        # 3. Check for missing folders and remove from DB
-        # Fetch fresh from DB after scan and duplicate removal
-        db_apps = get_applications()
-        removed_count = 0
-        for app in db_apps:
-            if not os.path.exists(app['folder_path']):
-                delete_application(app['id'])
-                removed_count += 1
+        added_count, updated_count, removed_count, duplicates_removed = sync_workspace(root_path)
         
         # Refresh the UI
         self.refresh_stats()
@@ -512,9 +472,9 @@ class Dashboard(ctk.CTkFrame):
             if added_count > 0:
                 msg += f"- Imported {added_count} new applications\n"
             if total_removed > 0:
-                msg += f"- Removed {total_removed} broken or duplicate records\n"
+                msg += f"- Removed {total_removed} deleted or duplicate records\n"
             if updated_count > 0:
-                msg += f"- Synced dates for {updated_count} existing applications\n"
+                msg += f"- Synced updates for {updated_count} existing applications\n"
             messagebox.showinfo("Scan Results", msg)
         else:
             messagebox.showinfo("Scan Results", "Everything is already in sync!")
@@ -537,7 +497,11 @@ class Dashboard(ctk.CTkFrame):
             folder_path, creation_time = create_application_folder(company, final_role, job_description, cv_template_path)
             
             # 2. Update Database
-            add_application(company, final_role, folder_path, creation_time, job_description)
+            app_id = add_application(company, final_role, folder_path, creation_time, job_description)
+            
+            # Write out jalm_id for reliable sync tracking later
+            from ..core.file_ops import write_jalm_id
+            write_jalm_id(folder_path, app_id)
             
             # 3. Refresh UI
             self.refresh_data()

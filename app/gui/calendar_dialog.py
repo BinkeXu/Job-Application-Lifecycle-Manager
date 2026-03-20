@@ -33,14 +33,20 @@ class CalendarDialog(ctk.CTkToplevel):
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.pack(fill="x", padx=10, pady=10)
         
+        self.prev_year_btn = ctk.CTkButton(self.header_frame, text="<<", width=30, command=self.prev_year)
+        self.prev_year_btn.pack(side="left", padx=(0, 2))
+        
         self.prev_btn = ctk.CTkButton(self.header_frame, text="<", width=30, command=self.prev_month)
         self.prev_btn.pack(side="left")
         
         self.lbl_month = ctk.CTkLabel(self.header_frame, text="", font=("Arial", 14, "bold"))
         self.lbl_month.pack(side="left", expand=True)
         
+        self.next_year_btn = ctk.CTkButton(self.header_frame, text=">>", width=30, command=self.next_year)
+        self.next_year_btn.pack(side="right")
+        
         self.next_btn = ctk.CTkButton(self.header_frame, text=">", width=30, command=self.next_month)
-        self.next_btn.pack(side="right")
+        self.next_btn.pack(side="right", padx=(0, 2))
         
         # Calendar Grid
         self.cal_frame = ctk.CTkFrame(self)
@@ -72,7 +78,7 @@ class CalendarDialog(ctk.CTkToplevel):
             for c, day in enumerate(week):
                 if day != 0:
                     btn = ctk.CTkButton(self.cal_frame, text=str(day), width=30, height=30, fg_color="transparent", border_width=1,
-                                      text_color="black",
+                                      text_color=("black", "white"),
                                       command=lambda d=day: self.select_day(d))
                     btn.grid(row=r+1, column=c, padx=2, pady=2)
                     
@@ -96,6 +102,14 @@ class CalendarDialog(ctk.CTkToplevel):
         if self.month == 13:
             self.month = 1
             self.year += 1
+        self.render_calendar()
+        
+    def prev_year(self):
+        self.year -= 1
+        self.render_calendar()
+        
+    def next_year(self):
+        self.year += 1
         self.render_calendar()
         
     def select_day(self, day):

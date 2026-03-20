@@ -51,12 +51,12 @@ class ReportDialog(ctk.CTkToplevel):
             row_idx += 1
 
         # 2. Status Table (Full Width)
-        self._create_table(self.tables_frame, "By Status", self.metrics["by_status"], row=row_idx, col=0, colspan=2)
+        self._create_table(self.tables_frame, "By Status", self.metrics["by_status"], row=row_idx, col=0, colspan=2, header_name="Status")
         row_idx += 1
         
         # 3. Company & Role Tables (Side by Side)
-        self._create_table(self.tables_frame, "Top Companies", self.metrics["by_company"], row=row_idx, col=0)
-        self._create_table(self.tables_frame, "Top Roles", self.metrics["by_role"], row=row_idx, col=1)
+        self._create_table(self.tables_frame, "Top Companies", self.metrics["by_company"], row=row_idx, col=0, header_name="Company")
+        self._create_table(self.tables_frame, "Top Roles", self.metrics["by_role"], row=row_idx, col=1, header_name="Role")
 
     def _create_card(self, parent, title, value, color):
         """Helper to create color-coded metric cards at the top."""
@@ -66,7 +66,7 @@ class ReportDialog(ctk.CTkToplevel):
         ctk.CTkLabel(card, text=title, text_color="white", font=("Arial", 14)).pack(pady=(15, 5))
         ctk.CTkLabel(card, text=str(value), text_color="white", font=("Arial", 28, "bold")).pack(pady=(0, 15))
 
-    def _create_table(self, parent, title, data, row, col, colspan=1):
+    def _create_table(self, parent, title, data, row, col, colspan=1, header_name="Name"):
         """Helper to create structured data tables with headers and rows."""
         frame = ctk.CTkFrame(parent)
         frame.grid(row=row, column=col, columnspan=colspan, sticky="nsew", padx=10, pady=10)
@@ -76,8 +76,8 @@ class ReportDialog(ctk.CTkToplevel):
         # Header Row
         header = ctk.CTkFrame(frame, height=30, fg_color="transparent")
         header.pack(fill="x", padx=10)
-        ctk.CTkLabel(header, text="Name", font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
-        ctk.CTkLabel(header, text="Count", font=("Arial", 12, "bold"), width=50).pack(side="right", padx=5)
+        ctk.CTkLabel(header, text=header_name, font=("Arial", 12, "bold"), anchor="w").pack(side="left", padx=5, expand=True, fill="x")
+        ctk.CTkLabel(header, text="Count", font=("Arial", 12, "bold"), width=50, anchor="e").pack(side="right", padx=5)
         
         # Dynamic Rows based on database aggregation
         if not data:
@@ -94,7 +94,7 @@ class ReportDialog(ctk.CTkToplevel):
                 name_lbl = ctk.CTkLabel(row_frame, text=str(name), anchor="w")
                 name_lbl.pack(side="left", padx=5, expand=True, fill="x")
                 
-                ctk.CTkLabel(row_frame, text=str(count), width=50).pack(side="right", padx=5)
+                ctk.CTkLabel(row_frame, text=str(count), width=50, anchor="e").pack(side="right", padx=5)
 
     def _create_interview_roles_table(self, parent, title, data, row, col, colspan=1):
         """Helper to create a specialized table for roles that have interview records."""
