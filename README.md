@@ -15,10 +15,11 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
 - **Advanced Analytics Dashboard**:
-    - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. Rejected vs. Offer).
-    - **Status Distribution**: Interactive pie charts with hover tooltips.
-    - **Detailed Reporting**: Generate a comprehensive **Summary Report** including Success Rate (Interviews / Total), and top Role/Company breakdowns.
-    - **Quick Filters**: "Last 7 Days", **"Last 14 Days"**, and "Last 30 Days" shortcuts using a custom Calendar picker.
+    - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. OA vs. HR Call vs. Interviewed vs. Offer).
+    - **Status Distribution**: Interactive pie charts with hover tooltips and a continuous date-padded timeline.
+    - **Detailed Funnel Reporting**: Generate a comprehensive **Summary Report** with segmented tracking for **OA**, **HR Call**, and **Interview** stages.
+    - **Performance Metrics**: Calculates a professional **Success Rate** based on your Interview-to-Offer conversion performance.
+    - **Quick Filters**: "Last 7 Days", "Last 14 Days", "Last 30 Days", and one-click **"Year-To-Date (YTD)"** shortcuts using a theme-aware custom Calendar picker.
 - **Batch Document Export**:
     - **Selective Backup**: Bulk-export your CVs, JDs, or both for your current search results.
     - **Standardized Renaming**: Automatically renames files for professional organization (e.g., `JobTitle cv 1.pdf`, `JobTitle jd 1.txt`).
@@ -101,10 +102,10 @@ JALM uses `PyInstaller` to create a standalone Windows executable.
    pip install pyinstaller
    ```
 
-2. **Run Build Command**:
-   To ensure all assets and the background service are bundled correctly, allow use the provided spec file:
+2. **Run Build Script**:
+   To ensure all assets, themes, and the background .NET service are bundled correctly, use the provided build script:
    ```bash
-   pyinstaller JALM.spec --noconfirm
+   python build_exe.py
    ```
 
 3. **Locate EXE**: Your standalone executable will be generated in the `dist/` folder as `JALM.exe`.
