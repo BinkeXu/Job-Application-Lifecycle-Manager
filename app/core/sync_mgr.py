@@ -80,8 +80,10 @@ def sync_workspace(root_path):
         # At this point, target_app_id is the matched record.
         active_ids.add(target_app_id)
         
-        # Fetch fresh record or use existing
-        current_record = get_application_by_id(target_app_id)
+        # Use pre-fetched record from db_by_id; only query DB for newly added records
+        current_record = db_by_id.get(target_app_id)
+        if current_record is None:
+            current_record = get_application_by_id(target_app_id)
         
         # Update creation date if differs
         if current_record and current_record['created_at'] != created_at:

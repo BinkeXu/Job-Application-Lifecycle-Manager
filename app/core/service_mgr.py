@@ -63,12 +63,13 @@ class ServiceManager:
             # sys.executable gives us the path to the running .exe.
             executable_dir = str(Path(sys.executable).parent)
             
-            # Debug logging
-            log_path = os.path.join(executable_dir, "jalm_service_debug.txt")
-            with open(log_path, "a") as f:
-                f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Attempting to launch service.\n")
-                f.write(f"Service Path: {service_path}\n")
-                f.write(f"Exists: {service_path.exists()}\n")
+            # Debug logging (only in dev mode, not in production bundles)
+            if not hasattr(sys, '_MEIPASS'):
+                log_path = os.path.join(executable_dir, "jalm_service_debug.txt")
+                with open(log_path, "a") as f:
+                    f.write(f"\n[{time.strftime('%Y-%m-%d %H:%M:%S')}] Attempting to launch service.\n")
+                    f.write(f"Service Path: {service_path}\n")
+                    f.write(f"Exists: {service_path.exists()}\n")
 
             # Create a copy of the current environment and add our custom variable.
             env = os.environ.copy()
@@ -76,24 +77,29 @@ class ServiceManager:
 
             # CREATE_NO_WINDOW (0x08000000) makes the process run invisibly.
             # This is important so the user doesn't see a random black box.
+            self._stdout_handle = open(os.path.join(executable_dir, "jalm_service_stdout.txt"), "a")
+            self._stderr_handle = open(os.path.join(executable_dir, "jalm_service_stderr.txt"), "a")
             self._process = subprocess.Popen(
                 [str(service_path)],
                 creationflags=0x08000000,
                 cwd=str(service_path.parent), # Ensure it runs in its own directory
                 env=env,
-                stdout=open(os.path.join(executable_dir, "jalm_service_stdout.txt"), "a"),
-                stderr=open(os.path.join(executable_dir, "jalm_service_stderr.txt"), "a")
+                stdout=self._stdout_handle,
+                stderr=self._stderr_handle
             )
-            with open(log_path, "a") as f:
-                f.write(f"Process started with PID: {self._process.pid}\n")
+            if not hasattr(sys, '_MEIPASS'):
+                log_path = os.path.join(executable_dir, "jalm_service_debug.txt")
+                with open(log_path, "a") as f:
+                    f.write(f"Process started with PID: {self._process.pid}\n")
 
         except Exception as e:
             print(f"Failed to start background service: {e}")
-            try:
-                with open(os.path.join(executable_dir, "jalm_service_debug.txt"), "a") as f:
-                    f.write(f"EXCEPTION: {e}\n")
-            except:
-                pass
+            if not hasattr(sys, '_MEIPASS'):
+                try:
+                    with open(os.path.join(executable_dir, "jalm_service_debug.txt"), "a") as f:
+                        f.write(f"EXCEPTION: {e}\n")
+                except Exception:
+                    pass
 
     def stop_service(self):
         """
@@ -111,3 +117,13 @@ class ServiceManager:
                 # If it takes too long, force it to close immediately.
                 self._process.kill()
             self._process = None
+        
+        # Close file handles to avoid leaks
+        for handle in (getattr(self, '_stdout_handle', None), getattr(self, '_stderr_handle', None)):
+            if handle:
+                try:
+                    handle.close()
+                except Exception:
+                    pass
+        self._stdout_handle = None
+        self._stderr_handle = None

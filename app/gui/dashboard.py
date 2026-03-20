@@ -47,7 +47,8 @@ class AppListItem(ctk.CTkFrame):
         # Initialize status color
         self._update_status_color(self.app_data['status'])
         
-        date_str = self.app_data['created_at'].split(' ')[0]
+        raw_date = self.app_data['created_at'] if self.app_data['created_at'] else ''
+        date_str = raw_date.split(' ')[0] if raw_date else 'N/A'
         ctk.CTkLabel(self, text=date_str, width=120, anchor="w").pack(side="left", padx=10)
 
         # Actions - Pack directly to the right
@@ -197,8 +198,6 @@ class Dashboard(ctk.CTkFrame):
         """
         total, _ = get_stats()
         self._last_app_count = total
-        total, _ = get_stats()
-        self._last_app_count = total
         self._refresh_job = self.after(5000, self._auto_refresh)
 
     def _auto_refresh(self):
@@ -237,6 +236,8 @@ class Dashboard(ctk.CTkFrame):
         self.search_entry.pack(side="left", padx=(0, 10))
         # Bind Enter key to search
         self.search_entry.bind("<Return>", lambda e: self.refresh_list())
+        # Connect debounced auto-search as you type
+        self.search_var.trace_add("write", self.on_search_change)
         
         self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=80, command=self.refresh_list)
         self.search_btn.pack(side="left", padx=(0, 20))
@@ -282,7 +283,9 @@ class Dashboard(ctk.CTkFrame):
         self.comp_header.pack(side="left", padx=10)
         self.comp_header.bind("<Button-1>", lambda e: self.on_header_click("Company"))
 
-        ctk.CTkLabel(self.header_frame, text="Role", font=("Arial", 12, "bold"), width=200, anchor="w").pack(side="left", padx=10)
+        self.role_header = ctk.CTkLabel(self.header_frame, text="Role ↕", font=("Arial", 12, "bold"), width=200, anchor="w", cursor="hand2")
+        self.role_header.pack(side="left", padx=10)
+        self.role_header.bind("<Button-1>", lambda e: self.on_header_click("Role"))
         
         self.status_header = ctk.CTkLabel(self.header_frame, text="Status ↕", font=("Arial", 12, "bold"), width=120, anchor="w", cursor="hand2")
         self.status_header.pack(side="left", padx=10)
@@ -354,11 +357,16 @@ class Dashboard(ctk.CTkFrame):
         self._all_apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
         
         # Limit to 20 if Show All is off and not searching
+        total_count = len(self._all_apps)
         if not self.show_all_var.get() and not search_query:
             self._all_apps = self._all_apps[:20]
         
         # Render list in chunks for performance
         self._render_chunk(0)
+        
+        # Show truncation notice if list was limited
+        if not self.show_all_var.get() and not search_query and total_count > 20:
+            self.after(200, lambda: self._show_truncation_notice(total_count))
 
     def _render_chunk(self, index, chunk_size=30):
         """Renders items in batches to populate the scroll area without freezing."""
@@ -373,7 +381,7 @@ class Dashboard(ctk.CTkFrame):
         
         for i in range(index, end_index):
             app = self._all_apps[i]
-            item = AppListItem(self.scrollable_frame, app, self.refresh_stats)
+            item = AppListItem(self.scrollable_frame, app, self.refresh_data)
             item.pack(fill="x", pady=2)
             self._visible_items.append(item)
             
@@ -407,6 +415,15 @@ class Dashboard(ctk.CTkFrame):
         self._is_resizing = False
         # No need to re-render everything on resize since pack handles layout
 
+    def _show_truncation_notice(self, total):
+        """Shows a notice when the list is truncated to 20 items."""
+        if not self.winfo_exists():
+            return
+        notice = ctk.CTkLabel(self.scrollable_frame, 
+                              text=f"Showing 20 of {total} applications. Toggle 'Show All' to see more.",
+                              text_color="gray", font=("Arial", 11, "italic"))
+        notice.pack(pady=10)
+
     def on_search_change(self, *args):
         if self._search_timer:
             self.after_cancel(self._search_timer)
@@ -422,16 +439,12 @@ class Dashboard(ctk.CTkFrame):
             self.sort_order = "DESC" if column == "Date" else "ASC"
         
         # Update header icons to show direction
-        comp_text = "Company " + ("↑" if (column == "Company" and self.sort_order == "ASC") else 
-                                   "↓" if (column == "Company" and self.sort_order == "DESC") else "↕")
-        date_text = "Date " + ("↑" if (column == "Date" and self.sort_order == "ASC") else 
-                                "↓" if (column == "Date" and self.sort_order == "DESC") else "↕")
-        status_text = "Status " + ("↑" if (column == "Status" and self.sort_order == "ASC") else 
-                                "↓" if (column == "Status" and self.sort_order == "DESC") else "↕")
+        def arrow(col): return "↑" if (column == col and self.sort_order == "ASC") else "↓" if (column == col and self.sort_order == "DESC") else "↕"
         
-        self.comp_header.configure(text=comp_text)
-        self.date_header.configure(text=date_text)
-        self.status_header.configure(text=status_text)
+        self.comp_header.configure(text=f"Company {arrow('Company')}")
+        self.role_header.configure(text=f"Role {arrow('Role')}")
+        self.status_header.configure(text=f"Status {arrow('Status')}")
+        self.date_header.configure(text=f"Date {arrow('Date')}")
         
         self.refresh_list()
 
@@ -511,8 +524,6 @@ class Dashboard(ctk.CTkFrame):
             
             messagebox.showinfo("Success", f"Application for {company} created successfully!")
         except Exception as e:
-            messagebox.showinfo("Success", f"Application for {company} created successfully!")
-        except Exception as e:
             messagebox.showerror("Error", f"Failed to create application: {e}")
 
     def on_export(self):
@@ -526,7 +537,6 @@ class Dashboard(ctk.CTkFrame):
         search_query = self.search_var.get()
         
         # 2. Open Dialog
-        from .export_dialog import ExportDialog
         from .export_dialog import ExportDialog
         ExportDialog(self.winfo_toplevel(), apps_to_export, search_query)
 

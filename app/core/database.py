@@ -26,6 +26,7 @@ def get_db_connection():
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA busy_timeout=5000") # Wait up to 5 seconds if the file is busy.
+    conn.execute("PRAGMA foreign_keys=ON")   # Enable cascade deletes globally.
     
     return conn
 
@@ -101,10 +102,16 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Validate sort_order against whitelist to prevent SQL injection
+    sort_order = sort_order.upper()
+    if sort_order not in ("ASC", "DESC"):
+        sort_order = "DESC"
+    
     # Map friendly sort names to column names
     sort_map = {
         "Date": "created_at",
         "Company": "company_name",
+        "Role": "role_name",
         "Status": "status"
     }
     column = sort_map.get(sort_by, "created_at")
@@ -194,15 +201,15 @@ def add_interview(app_id, notes):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get current sequence
-    cursor.execute('SELECT COUNT(*) FROM interviews WHERE app_id = ?', (app_id,))
-    count = cursor.fetchone()[0]
-    next_sequence = count + 1
-    
+    # Atomic sequence generation — avoids race conditions with concurrent access
     cursor.execute('''
         INSERT INTO interviews (app_id, sequence, notes)
-        VALUES (?, ?, ?)
-    ''', (app_id, next_sequence, notes))
+        VALUES (?, COALESCE((SELECT MAX(sequence) FROM interviews WHERE app_id = ?) + 1, 1), ?)
+    ''', (app_id, app_id, notes))
+    
+    # Fetch the actual sequence value that was inserted
+    cursor.execute('SELECT sequence FROM interviews WHERE rowid = ?', (cursor.lastrowid,))
+    next_sequence = cursor.fetchone()[0]
     
     conn.commit()
     conn.close()
@@ -230,9 +237,10 @@ def count_applications_with_name(company, role):
     """Counts how many applications exist for a company where the role name starts with 'role'."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Looking for exact match or 'Role (Index)' format
-    pattern = f"{role}%"
-    cursor.execute('SELECT COUNT(*) FROM applications WHERE company_name = ? AND role_name LIKE ?', (company, pattern))
+    # Escape SQL LIKE wildcards in the role name to avoid false matches
+    escaped_role = role.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    pattern = f"{escaped_role}%"
+    cursor.execute("SELECT COUNT(*) FROM applications WHERE company_name = ? AND role_name LIKE ? ESCAPE '\\'", (company, pattern))
     count = cursor.fetchone()[0]
     conn.close()
     return count
@@ -241,8 +249,6 @@ def delete_application(app_id):
     """Deletes an application record from the database."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Enable foreign keys for cascade delete
-    cursor.execute("PRAGMA foreign_keys = ON")
     cursor.execute('DELETE FROM applications WHERE id = ?', (app_id,))
     conn.commit()
     conn.close()
@@ -251,9 +257,6 @@ def remove_duplicates():
     """Removes duplicate records based on folder_path, keeping the one with the lowest ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Enable foreign keys for cascade delete
-    cursor.execute("PRAGMA foreign_keys = ON")
     
     # Find all folder_paths that appear more than once
     cursor.execute('''

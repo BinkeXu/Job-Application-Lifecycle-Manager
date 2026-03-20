@@ -17,13 +17,18 @@ class CalendarDialog(ctk.CTkToplevel):
         if initial_date:
             try:
                 self.current_date = datetime.strptime(initial_date, "%Y-%m-%d")
-            except:
+            except Exception:
                 self.current_date = datetime.now()
         else:
             self.current_date = datetime.now()
             
         self.year = self.current_date.year
         self.month = self.current_date.month
+        
+        # Track the previously selected date for highlighting
+        self.selected_day = self.current_date.day if initial_date else None
+        self.selected_month = self.current_date.month if initial_date else None
+        self.selected_year = self.current_date.year if initial_date else None
         
         self.setup_ui()
         self.grab_set() # Modal
@@ -82,10 +87,15 @@ class CalendarDialog(ctk.CTkToplevel):
                                       command=lambda d=day: self.select_day(d))
                     btn.grid(row=r+1, column=c, padx=2, pady=2)
                     
+                    # Highlight the previously selected date
+                    if (self.selected_day and day == self.selected_day and 
+                        self.month == self.selected_month and 
+                        self.year == self.selected_year):
+                        btn.configure(fg_color=("#3B8ED0", "#1F6AA5"), text_color="white")
                     # Highlight today if in current month
-                    if (day == self.current_date.day and 
-                        self.month == self.current_date.month and 
-                        self.year == self.current_date.year):
+                    elif (day == datetime.now().day and 
+                        self.month == datetime.now().month and 
+                        self.year == datetime.now().year):
                         btn.configure(fg_color=("gray75", "gray25"))
                         
                     self.day_buttons.append(btn)

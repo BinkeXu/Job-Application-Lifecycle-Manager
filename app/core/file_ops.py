@@ -87,11 +87,13 @@ def get_folder_creation_time(path):
 
 def open_folder(path):
     """Opens the folder in the system's file explorer."""
-    if os.name == 'nt':
+    import sys, subprocess
+    if sys.platform == 'win32':
         os.startfile(path)
-    else:
-        import subprocess
+    elif sys.platform == 'darwin':
         subprocess.run(["open", path])
+    else:
+        subprocess.run(["xdg-open", path])
 
 def scan_for_existing_applications(root_path):
     """

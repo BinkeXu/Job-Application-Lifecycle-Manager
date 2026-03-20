@@ -42,3 +42,6 @@ ENV/
 
 # Project Summary
 summary.txt
+
+# Architecture Reports
+docs/architecture_audit*

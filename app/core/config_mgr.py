@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 
 GLOBAL_CONFIG_FILE = "config.json"
@@ -13,7 +14,12 @@ DEFAULT_CONFIG = {
 }
 
 def get_global_config_path():
-    return Path(GLOBAL_CONFIG_FILE).absolute()
+    if hasattr(sys, '_MEIPASS'):
+        # Bundled (PyInstaller): Place config next to the .exe
+        return Path(sys.executable).parent / GLOBAL_CONFIG_FILE
+    else:
+        # Dev mode: Place config in the project root
+        return Path(__file__).parent.parent.parent / GLOBAL_CONFIG_FILE
 
 def get_active_root():
     """Returns the current active root directory from global config."""
@@ -29,14 +35,22 @@ def get_active_root():
                 set_active_root(active_root)
                 return active_root
             return data.get("active_root")
-    except:
+    except Exception:
         return None
 
 def set_active_root(root_path):
-    """Sets the active root directory in global config."""
+    """Sets the active root directory in global config (preserves other keys)."""
     global_path = get_global_config_path()
+    data = {}
+    if global_path.exists():
+        try:
+            with open(global_path, "r") as f:
+                data = json.load(f)
+        except Exception:
+            pass
+    data["active_root"] = str(root_path)
     with open(global_path, "w") as f:
-        json.dump({"active_root": str(root_path)}, f, indent=4)
+        json.dump(data, f, indent=4)
 
 def get_workspace_config_path():
     """Returns path to the config file inside the active root."""
@@ -58,7 +72,7 @@ def load_config():
             if "cl_template_path" in data and "cover_letter_template_path" not in data:
                 data["cover_letter_template_path"] = data["cl_template_path"]
             return data
-    except:
+    except Exception:
         return DEFAULT_CONFIG
 
 def save_config(config_data):
