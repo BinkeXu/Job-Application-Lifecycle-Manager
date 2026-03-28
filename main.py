@@ -1,6 +1,7 @@
 import atexit
 import signal
 import sys
+import subprocess
 import customtkinter as ctk
 from app.core.config_mgr import is_config_complete
 from app.gui.setup_wizard import SetupWizard
@@ -22,9 +23,10 @@ class JALMApp(ctk.CTk):
         # This creates the necessary SQLite tables if they don't exist yet.
         init_db()
 
-        # 3. Hybrid Sync Startup
+        # 3. Hybrid Sync & AI Startup
         # We start the .NET background service right away.
         # This service handles real-time folder watching and document generation.
+        self.start_ollama()
         self.service_mgr = ServiceManager()
         self.service_mgr.start_service()
 
@@ -44,6 +46,25 @@ class JALMApp(ctk.CTk):
             self.show_setup_wizard()
         else:
             self.init_main_ui()
+
+    def start_ollama(self):
+        """Attempts to start the local Ollama server silently in the background."""
+        try:
+            # Hide the console window on Windows
+            startupinfo = None
+            if sys.platform == "win32":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            
+            # Launch ollama serve in the background, suppressing output.
+            # If it's already running, this will just fail quietly.
+            subprocess.Popen(['ollama', 'serve'], 
+                             startupinfo=startupinfo, 
+                             stdout=subprocess.DEVNULL, 
+                             stderr=subprocess.DEVNULL)
+            print("Auto-started Ollama background service.")
+        except Exception as e:
+            print(f"Could not auto-start Ollama: {e}")
 
     def show_setup_wizard(self):
         """Displays the step-by-step installation guide (Setup Wizard)."""

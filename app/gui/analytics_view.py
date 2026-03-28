@@ -107,9 +107,19 @@ class AnalyticsDashboard(ctk.CTkToplevel):
                                       arrowprops=dict(arrowstyle="->"))
         self.annot2.set_visible(False)
 
-        # 3. Summary Footer
-        self.footer_label = ctk.CTkLabel(self, text="", font=("Arial", 12))
-        self.footer_label.pack(side="bottom", pady=10)
+        # 3. Summary Footer & Settings
+        self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer_frame.pack(side="bottom", fill="x", padx=10, pady=10)
+        
+        self.footer_label = ctk.CTkLabel(self.footer_frame, text="", font=("Arial", 12))
+        self.footer_label.pack(side="left", padx=10)
+        
+        self.settings_btn = ctk.CTkButton(self.footer_frame, text="⚙️ LLM Config", width=110, fg_color="gray", command=self.open_llm_settings)
+        self.settings_btn.pack(side="right", padx=10)
+        
+        self.classifications_btn = ctk.CTkButton(self.footer_frame, text="📋 Edit Classifications", width=150, fg_color="gray", command=self.open_classifications_dialog)
+        self.classifications_btn.pack(side="right", padx=10)
+
         
         # Set Default to Year-to-Date
         self.set_ytd(refresh=False)
@@ -349,9 +359,32 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         from .report_dialog import ReportDialog
         ReportDialog(self, metrics, range_text)
 
+    def open_llm_settings(self):
+        """Opens a small dialog to configure the Ollama model name."""
+        from ..core.config_mgr import load_config, save_config
+        config = load_config()
+        current_model = config.get("ollama_model", "llama3.2")
+        
+        dialog = ctk.CTkInputDialog(text="Enter Ollama Model Name:\n(e.g., llama3.2, mistral, phi3)", title="LLM Settings")
+        
+        # CTkInputDialog doesn't support setting default value easily, but we prompt the user
+        result = dialog.get_input()
+        if result and result.strip():
+            config["ollama_model"] = result.strip()
+            save_config(config)
+            messagebox.showinfo("Success", f"Ollama model changed to '{result}'.\nIt will be used for new unseen roles.")
+
+    def open_classifications_dialog(self):
+        """Opens the UI to review and edit job role classifications."""
+        from .role_mapping_dialog import RoleMappingDialog
+        # Pass refresh_charts as callback so charts update if user changes classifications
+        RoleMappingDialog(self, on_close_callback=self.refresh_charts)
+
     def validate_date(self, date_text):
         try:
             datetime.strptime(date_text, '%Y-%m-%d')
             return True
         except ValueError:
             return False
+
+

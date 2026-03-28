@@ -89,6 +89,14 @@ Stores notes related to specific interview rounds.
 | `notes` | TEXT | Interview details and feedback. |
 | `date` | DATETIME | Timestamp of interview log. |
 
+### Table: `role_mappings` (AI Cache)
+A high-speed lookup table that permanently caches LLM classification decisions for the Analytics reporting system.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `original_role` | TEXT | Primary Key. The raw, user-entered job title. |
+| `mapped_category` | TEXT | The standardized industry group identified by the AI (e.g., 'Data Engineer'). |
+
 ## ⚙️ Core Modules
 
 ### Configuration Management (`config_mgr.py`)

@@ -15,6 +15,9 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
 - **Advanced Analytics Dashboard**:
+    - **AI-Powered Role Categorization**: Integrates with a local LLM (Ollama, `llama3.2` by default) to automatically organize highly varied or messy job titles (e.g., "Junior Web Developer", "SWE") into standardized, clean professional buckets (e.g., "Software Engineer"). 
+        - Uses a persistent SQLite cache (`role_mappings` table) so API calls are instantaneous after the first run.
+        - Includes an interactive **Role Classification Manager** UI to review AI decisions, manually override them, change the active LLM model, or clear the cache to force a re-evaluation of all data.
     - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. OA vs. HR Call vs. Interviewed vs. Offer).
     - **Status Distribution**: Interactive pie charts with hover tooltips and a continuous date-padded timeline.
     - **Detailed Funnel Reporting**: Generate a comprehensive **Summary Report** with segmented tracking for **OA**, **HR Call**, and **Interview** stages.
@@ -84,6 +87,69 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 - **Batch Export**: Click **Export Results** to copy all CVs and JDs for your currently filtered list into a single folder. You can choose to export only CVs or only JDs using the popup dialog.
 - **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
 - **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
+
+- **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
+- **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
+
+## 🏗️ System Architecture
+
+JALM operates as a **Hybrid Intelligence System** where a Python frontend and a .NET background service work in tandem via a shared database and filesystem.
+
+```mermaid
+graph TD
+    User((User))
+    Python["Python Dashboard (CustomTkinter)"]
+    Service[".NET Hybrid Service (Worker)"]
+    Ollama["Ollama Local LLM"]
+    DB[("jalm_apps.db (SQLite WAL)")]
+    FS["FileSystem (Job Folders)"]
+    Config["config.json / jalm_config.json"]
+
+    User -->|Interact| Python
+    User -->|Manage Folders| FS
+    
+    Python <-->|Query/Update| DB
+    Python -->|Read Config| Config
+    Python <-->|Zero-Shot Classification| Ollama
+    
+    Service <-->|Sync/Ghosting| DB
+    Service -->|Watch/Clone Templates| FS
+    Service -->|Reload| Config
+    Service -->|Export Analytics| FS
+```
+
+## 🗄️ Database Design
+
+JALM uses SQLite with **Write-Ahead Logging (WAL)** enabled to ensure the Python UI and .NET service can read and write concurrently without locking conflicts.
+
+### 1. `applications` Table
+Stores the high-level metadata for each job application.
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | INTEGER | Primary Key. |
+| `company_name` | TEXT | Name of the company. |
+| `role_name` | TEXT | Specific job title. |
+| `folder_path` | TEXT | Absolute path to the role folder. |
+| `status` | TEXT | Applied, OA, HR Call, Interviewed, Rejected, Offer, Ghosted. |
+| `job_description` | TEXT | Full text of the job post. |
+| `created_at` | DATETIME | Timestamp of entry creation. |
+
+### 2. `interviews` Table
+Stores historical notes related to specific interview rounds.
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | INTEGER | Primary Key. |
+| `app_id` | INTEGER | Foreign Key referencing `applications.id` (ON DELETE CASCADE). |
+| `sequence` | INTEGER | The interview number (1, 2, 3, etc.). |
+| `notes` | TEXT | Interview details and feedback. |
+| `date` | DATETIME | Timestamp of interview log. |
+
+### 3. `role_mappings` Table (AI Cache)
+A high-speed lookup table that permanently caches LLM classification decisions.
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `original_role` | TEXT | Primary Key. The raw, user-entered job title. |
+| `mapped_category` | TEXT | The standardized industry group identified by the AI (e.g., 'Data Engineer'). |
 
 ## 💻 Development & Git Workflow
 

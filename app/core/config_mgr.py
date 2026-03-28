@@ -10,7 +10,8 @@ DEFAULT_CONFIG = {
     "user_name": "",
     "cv_template_path": "",
     "cover_letter_template_path": "",
-    "additional_cv_templates": {}  # Dictionary mapping template names to their absolute paths
+    "additional_cv_templates": {},  # Dictionary mapping template names to their absolute paths
+    "ollama_model": "llama3.2"
 }
 
 def get_global_config_path():

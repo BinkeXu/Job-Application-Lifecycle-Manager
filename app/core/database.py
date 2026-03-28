@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 
 from .config_mgr import get_active_root
+import threading
 
 DB_NAME = "jalm_apps.db"
 
@@ -75,8 +76,49 @@ def init_db():
     # Migration: Rename 'Interviewing' to 'Interviewed'
     cursor.execute("UPDATE applications SET status = 'Interviewed' WHERE status = 'Interviewing'")
 
+    # 4. table for caching role categorizations (LLM)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS role_mappings (
+            original_role TEXT PRIMARY KEY,
+            mapped_category TEXT NOT NULL
+        )
+    ''')
+
+
     conn.commit()
     conn.close()
+
+def get_mapped_role(role_name):
+    """Checks the database for a cached category, otherwise asks the LLM and caches it."""
+    if not role_name:
+        return "Unknown Role"
+        
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT mapped_category FROM role_mappings WHERE original_role = ?', (role_name,))
+    row = cursor.fetchone()
+    
+    if row:
+        conn.close()
+        return row[0]
+        
+    # If not found, call LLM
+    try:
+        from .llm_service import classify_job_title
+        category = classify_job_title(role_name)
+    except Exception as e:
+        print(f"LLM Classification failed for '{role_name}': {e}")
+        category = role_name.title() # fallback
+
+    # Cache the result
+    try:
+        cursor.execute("INSERT OR IGNORE INTO role_mappings (original_role, mapped_category) VALUES (?, ?)", (role_name, category))
+        conn.commit()
+    except Exception as e:
+        print(f"Failed to cache role mapping: {e}")
+        
+    conn.close()
+    return category
 
 def add_application(company, role, folder_path, created_at=None, job_description=None):
     """Inserts a new application record."""
@@ -434,9 +476,17 @@ def get_detailed_analytics(start_date=None, end_date=None):
     metrics["by_company"] = cursor.fetchall()
 
     # 6. Frequency Breakdown by Role Name
-    query_role = f"SELECT role_name, COUNT(*) as c FROM applications{base_where} GROUP BY role_name ORDER BY c DESC"
+    query_role = f"SELECT role_name, COUNT(*) as c FROM applications{base_where} GROUP BY role_name"
     cursor.execute(query_role, params)
-    metrics["by_role"] = cursor.fetchall()
+    raw_roles = cursor.fetchall()
+    
+    role_counts = {}
+    for role_name, count in raw_roles:
+        category = get_mapped_role(role_name)
+        role_counts[category] = role_counts.get(category, 0) + count
+        
+    # Convert and sort descending
+    metrics["by_role"] = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)
 
     # 7. Application Status Distribution
     query_status = f"SELECT status, COUNT(*) as c FROM applications{base_where} GROUP BY status ORDER BY c DESC"
@@ -445,6 +495,35 @@ def get_detailed_analytics(start_date=None, end_date=None):
 
     conn.close()
     return metrics
+
+def get_all_role_mappings():
+    """Returns all rows in the role_mappings table."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT original_role, mapped_category FROM role_mappings ORDER BY original_role ASC')
+    mappings = cursor.fetchall()
+    conn.close()
+    return mappings
+
+def update_role_mapping(original_role, new_category):
+    """Manually updates the category for a specific role."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO role_mappings (original_role, mapped_category) 
+        VALUES (?, ?) 
+        ON CONFLICT(original_role) DO UPDATE SET mapped_category=excluded.mapped_category
+    ''', (original_role, new_category))
+    conn.commit()
+    conn.close()
+    
+def clear_all_role_mappings():
+    """Clears the mapping cache so the LLM will re-classify all roles next time."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM role_mappings')
+    conn.commit()
+    conn.close()
 
 if __name__ == "__main__":
     init_db()
