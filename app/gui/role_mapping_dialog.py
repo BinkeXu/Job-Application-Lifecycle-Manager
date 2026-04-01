@@ -2,23 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from ..core.database import get_all_role_mappings, update_role_mapping, clear_all_role_mappings
 
-# This list matches the exact categories defined in the LLM prompt.
-CATEGORIES = [
-    "Software Engineer",
-    "Data Engineer",
-    "Data Scientist",
-    "Data Analyst",
-    "Analyst - other",
-    "Graduate Program",
-    "Machine Learning Engineer",
-    "DevOps / Infrastructure",
-    "Product Manager",
-    "UI/UX Designer",
-    "Cybersecurity",
-    "IT Support",
-    "Sales / Marketing",
-    "Other"
-]
+from ..core.constants import CATEGORIES
 
 class RoleMappingDialog(ctk.CTkToplevel):
     def __init__(self, parent, on_close_callback=None):

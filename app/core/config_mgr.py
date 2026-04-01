@@ -36,7 +36,8 @@ def get_active_root():
                 set_active_root(active_root)
                 return active_root
             return data.get("active_root")
-    except Exception:
+    except Exception as e:
+        print(f"Error reading global config (get_active_root): {e}")
         return None
 
 def set_active_root(root_path):
@@ -47,8 +48,8 @@ def set_active_root(root_path):
         try:
             with open(global_path, "r") as f:
                 data = json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error reading global config (set_active_root): {e}")
     data["active_root"] = str(root_path)
     with open(global_path, "w") as f:
         json.dump(data, f, indent=4)
@@ -73,7 +74,8 @@ def load_config():
             if "cl_template_path" in data and "cover_letter_template_path" not in data:
                 data["cover_letter_template_path"] = data["cl_template_path"]
             return data
-    except Exception:
+    except Exception as e:
+        print(f"Error loading workspace config: {e}")
         return DEFAULT_CONFIG
 
 def save_config(config_data):

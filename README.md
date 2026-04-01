@@ -29,6 +29,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **Smart Collisions**: Automatically creates timestamped subfolders if exporting to a non-empty directory.
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
+    - **Asynchronous Processing**: Background threads execute AI operations or heavy data fetches so the GUI never hangs.
     - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
     - **Optimized Search**: Filter by company or role using the search bar (supports Enter key).
     - **Database Indexing**: Optimized SQLite queries inside each workspace.

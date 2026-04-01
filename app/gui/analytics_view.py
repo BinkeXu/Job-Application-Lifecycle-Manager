@@ -342,20 +342,54 @@ class AnalyticsDashboard(ctk.CTkToplevel):
 
     def open_summary_report(self):
         """
-        Gathers detailed analytics data for the current date range and 
-        displays it in a structured ReportDialog modal.
+        Gathers detailed analytics data in a background thread and 
+        displays it in a structured ReportDialog modal to avoid freezing the UI.
         """
         start = self.start_date_var.get().strip()
         end = self.end_date_var.get().strip()
+        range_text = f"{start} to {end}" if (start and end) else "All Time"
         
-        # Query the database for granular metrics based on selected dates.
-        from ..core.database import get_detailed_analytics
-        metrics = get_detailed_analytics(start if start else None, end if end else None)
+        # Show a loading dialog
+        loading = ctk.CTkToplevel(self)
+        loading.title("Loading...")
+        loading.geometry("400x150")
         
-        # Prepare a readable date range string for the report title.
-        range_text = f"{start} to {end}" if(start and end) else "All Time"
+        # Center the loading dialog
+        loading.update_idletasks()
+        try:
+            x = self.winfo_rootx() + (self.winfo_width() // 2) - 200
+            y = self.winfo_rooty() + (self.winfo_height() // 2) - 75
+            loading.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+            
+        loading.attributes("-topmost", True)
         
-        # Open the specialized reporting component.
+        ctk.CTkLabel(loading, text="Generating Report...", font=("Arial", 16, "bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(loading, text="This may take a moment if applying AI role classifications...").pack(pady=(0, 20))
+        loading.update()
+        
+        def fetch_data():
+            from ..core.database import get_detailed_analytics
+            
+            try:
+                metrics = get_detailed_analytics(start if start else None, end if end else None)
+                # Safely update GUI from main thread
+                self.after(0, self._show_report_dialog, metrics, range_text, loading)
+            except Exception as e:
+                print(f"Error generating report: {e}")
+                self.after(0, loading.destroy)
+
+        import threading
+        threading.Thread(target=fetch_data, daemon=True).start()
+
+    def _show_report_dialog(self, metrics, range_text, loading_dialog):
+        """Callback to show the report dialog once data is fetched."""
+        try:
+            loading_dialog.destroy()
+        except Exception:
+            pass
+            
         from .report_dialog import ReportDialog
         ReportDialog(self, metrics, range_text)
 

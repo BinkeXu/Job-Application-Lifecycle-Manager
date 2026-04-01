@@ -2,6 +2,7 @@ import urllib.request
 import urllib.error
 import json
 from .config_mgr import load_config, save_config
+from .constants import CATEGORIES
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
@@ -15,31 +16,18 @@ def classify_job_title(role_name: str, model_name: str = None) -> str:
     if not model_name:
         model_name = get_current_model()
 
+    categories_text = "\n".join([f"- {c}" for c in CATEGORIES])
     
     prompt = f"""You are an expert technical recruiter matching job titles to standardized broad reporting categories.
 You MUST map the given job title to EXACTLY ONE of the following predefined categories. Do not invent new categories.
 
 Allowed Categories: 
-- Software Engineer
-- Data Engineer
-- Data Scientist
-- Data Analyst
-- Analyst - other
-- Graduate Program
-- Machine Learning Engineer
-- DevOps / Infrastructure
-- Product Manager
-- UI/UX Designer
-- Cybersecurity
-- Sales / Marketing
-- IT Support
-- Other
+{categories_text}
 
 Reply with ONLY the exact string from the Allowed Categories list. Do not include any explanation, punctuation, or extra words.
 
 Title: {role_name}
 Category:"""
-
 
     payload = {
         "model": model_name,
