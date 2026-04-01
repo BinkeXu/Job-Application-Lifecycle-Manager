@@ -44,4 +44,4 @@ ENV/
 summary.txt
 
 # Architecture Reports
-docs/architecture_audit*
+docs/

@@ -352,28 +352,46 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # Show a loading dialog
         loading = ctk.CTkToplevel(self)
         loading.title("Loading...")
-        loading.geometry("400x150")
+        loading.geometry("450x200")
         
         # Center the loading dialog
         loading.update_idletasks()
         try:
-            x = self.winfo_rootx() + (self.winfo_width() // 2) - 200
-            y = self.winfo_rooty() + (self.winfo_height() // 2) - 75
+            x = self.winfo_rootx() + (self.winfo_width() // 2) - 225
+            y = self.winfo_rooty() + (self.winfo_height() // 2) - 100
             loading.geometry(f"+{x}+{y}")
         except Exception:
             pass
             
         loading.attributes("-topmost", True)
         
-        ctk.CTkLabel(loading, text="Generating Report...", font=("Arial", 16, "bold")).pack(pady=(20, 10))
-        ctk.CTkLabel(loading, text="This may take a moment if applying AI role classifications...").pack(pady=(0, 20))
+        ctk.CTkLabel(loading, text="Generating Report...", font=("Arial", 16, "bold")).pack(pady=(15, 5))
+        ctk.CTkLabel(loading, text="This may take a moment if applying AI role classifications...").pack(pady=(0, 15))
+        
+        progress_bar = ctk.CTkProgressBar(loading, mode="determinate")
+        progress_bar.pack(pady=(0, 10), padx=30, fill="x")
+        progress_bar.set(0)
+        
+        status_label = ctk.CTkLabel(loading, text="Initializing data...", text_color="gray", font=("Arial", 12))
+        status_label.pack()
+        
         loading.update()
+        
+        def update_progress(current, total, role_name):
+            if total > 0:
+                progress_bar.set(current / total)
+            status_label.configure(text=f"Classifying: {role_name} ({current}/{total})")
+            loading.update()
         
         def fetch_data():
             from ..core.database import get_detailed_analytics
             
             try:
-                metrics = get_detailed_analytics(start if start else None, end if end else None)
+                metrics = get_detailed_analytics(
+                    start if start else None, 
+                    end if end else None,
+                    progress_callback=lambda c, t, r: self.after(0, update_progress, c, t, r)
+                )
                 # Safely update GUI from main thread
                 self.after(0, self._show_report_dialog, metrics, range_text, loading)
             except Exception as e:

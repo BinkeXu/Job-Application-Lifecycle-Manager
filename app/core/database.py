@@ -424,7 +424,7 @@ def get_daily_status_counts(start_date=None, end_date=None):
     finally:
         conn.close()
 
-def get_detailed_analytics(start_date=None, end_date=None):
+def get_detailed_analytics(start_date=None, end_date=None, progress_callback=None):
     """
     Returns a detailed drill-down of application stats for the reporting view.
     Includes:
@@ -473,8 +473,6 @@ def get_detailed_analytics(start_date=None, end_date=None):
         metrics["offers_count"] = status_dict.get("Offer", 0)
 
         # 3. Interviews Secured
-        # Calculates the number of unique applications created in this date range that 
-        # successfully resulted in an interview (marked as Interviewed/Offer or has note records).
         query_interviews = f"""
             SELECT COUNT(DISTINCT a.id) 
             FROM applications a
@@ -484,6 +482,7 @@ def get_detailed_analytics(start_date=None, end_date=None):
         """
         cursor.execute(query_interviews, params)
         metrics["interviews_secured"] = cursor.fetchone()[0]
+        
         # 4a. List of OA Roles
         cursor.execute(f"SELECT company_name, role_name FROM applications{base_where} {' AND ' if base_where else ' WHERE '} status = 'OA' ORDER BY company_name ASC", params)
         metrics["oa_roles_list"] = cursor.fetchall()
@@ -515,9 +514,12 @@ def get_detailed_analytics(start_date=None, end_date=None):
         raw_roles = cursor.fetchall()
         
         role_counts = {}
-        for role_name, count in raw_roles:
+        total_roles = len(raw_roles)
+        for i, (role_name, count) in enumerate(raw_roles):
             category = get_mapped_role(role_name)
             role_counts[category] = role_counts.get(category, 0) + count
+            if progress_callback:
+                progress_callback(i + 1, total_roles, role_name)
             
         # Convert and sort descending
         metrics["by_role"] = sorted(role_counts.items(), key=lambda x: x[1], reverse=True)
