@@ -73,6 +73,13 @@ This file contains a historical record of major features, bug fixes, and technic
 
 ## 🐛 Bug Fixes & Technical Solutions
 
+### 11. Database SQLite ESCAPE Bug Fix (2026-04-02)
+- **Issue**: Searching or checking applications threw an SQLite "ESCAPE expression must be a single character" error because Python string literal parsing produced an invalid length for the ESCAPE clause. Furthermore, the search bar treated literal `%` and `_` inputs as wildcards.
+- **Solution**: 
+    1. **Valid SQL Escaping**: Updated database `LIKE` queries to pass exactly one `\` to the SQLite `ESCAPE` clause. 
+    2. **Literal Search Escaping**: Handled escaping of `%` and `_` symbols correctly in the dashboard's search query, ensuring exact matches instead of implicit wildcards.
+- **Outcome**: Searching and creating applications now safely handles wildcard characters without raising database format exceptions.
+
 ### 10. Code architecture and Stability Update (2026-04-01)
 - **Issue**: A code review identified UI freezing during LLM requests, possible SQLite database connection leaks on exceptions, silent failures in config loading, and DRY pattern violations with role categories.
 - **Solution**:

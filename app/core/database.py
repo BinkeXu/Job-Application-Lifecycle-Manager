@@ -168,8 +168,9 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
         params = []
         
         if search_query:
-            query_str += ' WHERE company_name LIKE ? OR role_name LIKE ?'
-            search_val = f"%{search_query}%"
+            query_str += " WHERE company_name LIKE ? ESCAPE '\\' OR role_name LIKE ? ESCAPE '\\'"
+            escaped_search = search_query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_val = f"%{escaped_search}%"
             params.extend([search_val, search_val])
         
         if column == "status":
@@ -304,9 +305,9 @@ def count_applications_with_name(company, role):
     try:
         cursor = conn.cursor()
         # Escape SQL LIKE wildcards in the role name to avoid false matches
-        escaped_role = role.replace('\\\\', '\\\\\\\\').replace('%', '\\\\%').replace('_', '\\\\_')
+        escaped_role = role.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
         pattern = f"{escaped_role}%"
-        cursor.execute("SELECT COUNT(*) FROM applications WHERE company_name = ? AND role_name LIKE ? ESCAPE '\\\\'", (company, pattern))
+        cursor.execute("SELECT COUNT(*) FROM applications WHERE company_name = ? AND role_name LIKE ? ESCAPE '\\'", (company, pattern))
         count = cursor.fetchone()[0]
         return count
     finally:
