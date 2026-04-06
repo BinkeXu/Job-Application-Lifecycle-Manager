@@ -9,6 +9,19 @@ OLLAMA_API_URL = "http://localhost:11434/api/generate"
 def get_current_model():
     return load_config().get("ollama_model", "llama3.2")
 
+def get_available_models():
+    """Fetches a list of available models from the local Ollama instance."""
+    try:
+        req = urllib.request.Request("http://localhost:11434/api/tags")
+        with urllib.request.urlopen(req, timeout=5) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            models = [model.get('name') for model in result.get('models', [])]
+            return models if models else ["llama3.2", "mistral", "phi3"]
+    except Exception:
+        # Fallback list if Ollama is unreachable
+        return ["llama3.2", "mistral", "phi3"]
+
+
 def classify_job_title(role_name: str, model_name: str = None) -> str:
     """
     Sends a zero-shot prompt to the local Ollama instance to categorize the job title.
@@ -44,7 +57,7 @@ Category:"""
     print(f"[LLM] Asking Ollama ({model_name}) to classify: '{role_name}' ... ", end="", flush=True)
     
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=60) as response:
             result = json.loads(response.read().decode('utf-8'))
             category = result.get('response', '').strip()
             

@@ -378,10 +378,14 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         loading.update()
         
         def update_progress(current, total, role_name):
-            if total > 0:
-                progress_bar.set(current / total)
-            status_label.configure(text=f"Classifying: {role_name} ({current}/{total})")
-            loading.update()
+            try:
+                if loading.winfo_exists():
+                    if total > 0:
+                        progress_bar.set(current / total)
+                    status_label.configure(text=f"Classifying: {role_name} ({current}/{total})")
+                    loading.update_idletasks()
+            except Exception:
+                pass
         
         def fetch_data():
             from ..core.database import get_detailed_analytics
@@ -412,19 +416,52 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         ReportDialog(self, metrics, range_text)
 
     def open_llm_settings(self):
-        """Opens a small dialog to configure the Ollama model name."""
+        """Opens a small dialog to configure the Ollama model name via a dropdown."""
         from ..core.config_mgr import load_config, save_config
+        from ..core.llm_service import get_available_models
+        
         config = load_config()
         current_model = config.get("ollama_model", "llama3.2")
+        available_models = get_available_models()
         
-        dialog = ctk.CTkInputDialog(text="Enter Ollama Model Name:\n(e.g., llama3.2, mistral, phi3)", title="LLM Settings")
+        if current_model not in available_models:
+            available_models.append(current_model)
         
-        # CTkInputDialog doesn't support setting default value easily, but we prompt the user
-        result = dialog.get_input()
-        if result and result.strip():
-            config["ollama_model"] = result.strip()
-            save_config(config)
-            messagebox.showinfo("Success", f"Ollama model changed to '{result}'.\nIt will be used for new unseen roles.")
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("LLM Settings")
+        dialog.geometry("350x200")
+        
+        # Center dialog
+        dialog.update_idletasks()
+        try:
+            x = self.winfo_rootx() + (self.winfo_width() // 2) - 175
+            y = self.winfo_rooty() + (self.winfo_height() // 2) - 100
+            dialog.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+            
+        dialog.attributes("-topmost", True)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Select Ollama Model:", font=("Arial", 16, "bold")).pack(pady=(20, 10))
+        
+        selected_model = ctk.StringVar(value=current_model)
+        
+        dropdown = ctk.CTkOptionMenu(dialog, variable=selected_model, values=available_models, width=200)
+        dropdown.pack(pady=10)
+        
+        def save_and_close():
+            model_name = selected_model.get().strip()
+            if model_name:
+                config["ollama_model"] = model_name
+                save_config(config)
+                # Ensure the message box displays on top of other windows
+                messagebox.showinfo("Success", f"Ollama model changed to '{model_name}'.\nIt will be used for new unseen roles.", parent=dialog)
+            dialog.destroy()
+            
+        btn_save = ctk.CTkButton(dialog, text="Save", width=120, command=save_and_close)
+        btn_save.pack(pady=(15, 0))
 
     def open_classifications_dialog(self):
         """Opens the UI to review and edit job role classifications."""
