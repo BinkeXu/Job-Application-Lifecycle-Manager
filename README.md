@@ -41,7 +41,15 @@ JALM is a powerful desktop application designed to streamline and automate your 
 
 ## 🛠️ Installation
 
-1. **Clone the repository**:
+1. **Prerequisites**:
+   - **Python 3.8+**
+   - **.NET 8.0 SDK**
+   - **[Ollama](https://ollama.com/)** (Required for AI categorization). After installing, pull the default model:
+     ```bash
+     ollama pull llama3.2
+     ```
+
+2. **Clone the repository**:
    ```bash
    git clone <repository-url>
    cd "Job Application Lifecycle Manager"
@@ -49,7 +57,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 
 2. **Install dependencies**:
    ```bash
-   pip install customtkinter
+   pip install -r requirements.txt
    ```
 
 3. **Setup the Background Service (.NET)**:
@@ -66,6 +74,11 @@ JALM is a powerful desktop application designed to streamline and automate your 
 4. **Run the Dashboard (Python)**:
    ```bash
    python main.py
+   ```
+
+5. **Run the Unified Test Suite**:
+   ```bash
+   python run_tests.py
    ```
 
 ## 📖 Usage
@@ -160,6 +173,41 @@ To keep your project updated on GitHub:
 2. **Stage Changes**: `git add .`
 3. **Commit**: `git commit -m "Your description of changes"`
 4. **Push**: `git push origin main`
+
+## 🧪 Testing & Quality Assurance
+
+JALM uses a comprehensive hybrid testing strategy to ensure reliability across both the Python core and the C# background service.
+
+### 1. Unified Test Runner
+We provide a one-click script to execute the entire test suite across both stacks and generate a combined report:
+```bash
+python run_tests.py
+```
+
+### 2. Python Backend (`pytest`)
+- **Framework**: `pytest` with `pytest-mock` and `pytest-cov`.
+- **Target**: Core logic in `app/core/` (Database, Config, LLM, Sync).
+- **Current Coverage**: **~77%** (Focusing on backend business logic).
+- **Run Separately**:
+  ```bash
+  pytest --cov=app/core tests/
+  ```
+
+### 3. C# Background Service (`xUnit`)
+- **Framework**: `xUnit`, `Moq`, and `Microsoft.Data.Sqlite`.
+- **Target**: `SmartWatcher`, `AnalyticsService`, `DocumentService`, and `DatabaseService`.
+- **Current Coverage**: **~91%** (Core services).
+- **Run Separately**:
+  ```bash
+  dotnet test JALM.Service.Tests/JALM.Service.Tests.csproj
+  ```
+
+### 4. Automated Coverage Reports
+Every test run generates visual reports:
+- **Python**: View `htmlcov/index.html` for line-by-line breakdown.
+- **C#**: Generates a `coverage.cobertura.xml` in `TestResults/` for CI/CD integration.
+
+---
 
 ### Creating an Executable (.exe)
 JALM uses `PyInstaller` to create a standalone Windows executable. 

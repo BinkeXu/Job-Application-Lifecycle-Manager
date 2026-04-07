@@ -45,3 +45,13 @@ summary.txt
 
 # Architecture Reports
 docs/
+
+# Testing & Artifacts
+htmlcov/
+.coverage
+.pytest_cache/
+TestResults/
+bin/
+obj/
+jalm_service_*.txt
+*.log
