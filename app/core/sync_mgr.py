@@ -21,6 +21,7 @@ def sync_workspace(root_path):
     # Maps
     db_by_id = {app['id']: app for app in current_db_apps}
     db_by_key = {(app['company_name'], app['role_name']): app for app in current_db_apps}
+    db_by_path = {app['folder_path']: app for app in current_db_apps}
     
     added_count = 0
     updated_count = 0
@@ -53,15 +54,32 @@ def sync_workspace(root_path):
                 update_application_paths(target_app_id, company, role, path)
                 updated_count += 1
                 
-        # 2. Match by company/role fallback
+        # 2. Match by folder_path fallback (Prevents duplicate loop if names differ but path is same)
+        elif path in db_by_path:
+            target_app_id = db_by_path[path]['id']
+            write_jalm_id(path, target_app_id)
+            seen_jalm_ids.add(target_app_id)
+            db_record = db_by_path[path]
+            
+            # If names on disk changed, update them in the DB
+            if db_record['company_name'] != company or db_record['role_name'] != role:
+                update_application_paths(target_app_id, company, role, path)
+                updated_count += 1
+                
+        # 3. Match by company/role fallback
         elif (company, role) in db_by_key:
             target_app_id = db_by_key[(company, role)]['id']
             # Write missing jalm_id
             write_jalm_id(path, target_app_id)
-            if jalm_id is None:
-                seen_jalm_ids.add(target_app_id)
+            seen_jalm_ids.add(target_app_id)
+            db_record = db_by_key[(company, role)]
+            
+            # If path changed, update it
+            if db_record['folder_path'] != path:
+                update_application_paths(target_app_id, company, role, path)
+                updated_count += 1
                 
-        # 3. New Application
+        # 4. New Application
         else:
             is_new = True
             new_id = add_application(company, role, path, created_at)
