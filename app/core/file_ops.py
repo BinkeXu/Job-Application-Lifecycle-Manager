@@ -62,6 +62,18 @@ def write_jalm_id(folder_path, app_id):
     """Writes the database application ID to a hidden .jalm_id file in the folder."""
     import os
     id_file = Path(folder_path) / ".jalm_id"
+    # Bug Fix: Windows throws a [Errno 13] Permission denied error if you try to 
+    # open a "hidden" file in write ("w") mode.
+    # To fix this, we temporarily remove the hidden attribute before writing, 
+    # and then re-hide the file afterwards.
+    if os.name == 'nt' and id_file.exists():
+        import ctypes
+        try:
+            FILE_ATTRIBUTE_NORMAL = 0x80
+            ctypes.windll.kernel32.SetFileAttributesW(str(id_file), FILE_ATTRIBUTE_NORMAL)
+        except Exception:
+            pass
+
     with open(id_file, "w", encoding="utf-8") as f:
         f.write(str(app_id))
     

@@ -61,8 +61,13 @@ class ServiceManager:
             # When running as an EXE, we need to tell the .NET service where the 
             # main application folder is, so it can find 'config.json'.
             # sys.executable gives us the path to the running .exe.
-            executable_dir = str(Path(sys.executable).parent)
-            
+            if hasattr(sys, "_MEIPASS"):
+                # If bundled, use the folder containing the executable
+                executable_dir = str(Path(sys.executable).parent)
+            else:
+                # Bug Fix: If running in developer mode, use the project root instead of the Python executable 
+                # folder (e.g. C:\Python314\) to avoid Windows [Errno 13] Permission denied errors.
+                executable_dir = str(Path(__file__).parent.parent.parent)
             # Debug logging (only in dev mode, not in production bundles)
             if not hasattr(sys, '_MEIPASS'):
                 log_path = os.path.join(executable_dir, "jalm_service_debug.txt")
