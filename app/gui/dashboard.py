@@ -189,6 +189,26 @@ class Dashboard(ctk.CTkFrame):
         
         # Bind destroy event for cleanup
         self.bind("<Destroy>", self._on_destroy_event)
+        
+        # Unfocus search entry when clicking outside
+        self.winfo_toplevel().bind("<Button-1>", self._on_global_click, add="+")
+        self.bind("<Button-1>", self._on_global_click, add="+")
+
+    def _on_global_click(self, event):
+        """Removes focus from the search bar if the user clicks somewhere else."""
+        try:
+            if not self.winfo_exists():
+                return
+            # Get the underlying tk entry widget
+            entry_widget = getattr(self.search_entry, '_entry', self.search_entry)
+            
+            # If the clicked widget is not the search entry, and search entry has focus
+            if event.widget != self.search_entry and event.widget != entry_widget:
+                current_focus = self.focus_get()
+                if current_focus in (self.search_entry, entry_widget):
+                    self.focus_set() # Give focus back to the main dashboard frame
+        except Exception:
+            pass
 
     def _setup_auto_refresh(self):
         """
@@ -234,18 +254,45 @@ class Dashboard(ctk.CTkFrame):
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(self.top_frame, placeholder_text="Search company or role...", width=300, textvariable=self.search_var)
         self.search_entry.pack(side="left", padx=(0, 10))
+        
+        self.clear_search_btn = ctk.CTkButton(
+            self.search_entry, 
+            text="x", 
+            width=20, 
+            height=20,
+            fg_color="transparent", 
+            text_color=("gray10", "gray90"), 
+            hover_color=("gray70", "gray30"), 
+            command=self.clear_search
+        )
+        self.search_var.trace_add("write", self.toggle_clear_button)
+
         # Bind Enter key to search
         self.search_entry.bind("<Return>", lambda e: self.refresh_list())
-        # Connect debounced auto-search as you type
-        self.search_var.trace_add("write", self.on_search_change)
         
         self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=80, command=self.refresh_list)
         self.search_btn.pack(side="left", padx=(0, 20))
 
+        # Filter Frame (Toggle + Time Filter)
+        self.filter_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
+        self.filter_frame.pack(side="left", padx=(0, 20))
+
         # Show All Toggle
         self.show_all_var = ctk.BooleanVar(value=False)
-        self.show_all_switch = ctk.CTkSwitch(self.top_frame, text="Show All", variable=self.show_all_var, command=self.refresh_list)
-        self.show_all_switch.pack(side="left", padx=(0, 20))
+        self.show_all_switch = ctk.CTkSwitch(self.filter_frame, text="Show All", variable=self.show_all_var, command=self.refresh_list)
+        self.show_all_switch.pack(anchor="w", pady=(0, 5))
+
+        # Time Filter
+        self.time_filter_var = ctk.StringVar(value="All Time")
+        self.time_filter_menu = ctk.CTkOptionMenu(
+            self.filter_frame, 
+            values=["All Time", "7 Days", "14 Days", "30 Days", "60 Days"], 
+            variable=self.time_filter_var, 
+            command=lambda e: self.refresh_list(),
+            height=24,
+            width=100
+        )
+        self.time_filter_menu.pack(anchor="w")
 
         # Reload Button
         self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
@@ -356,6 +403,18 @@ class Dashboard(ctk.CTkFrame):
         
         self._all_apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
         
+        # Filter by time
+        time_filter = getattr(self, 'time_filter_var', None)
+        if time_filter and time_filter.get() != "All Time":
+            try:
+                days = int(time_filter.get().replace("Days", "").strip())
+                import datetime
+                cutoff_date = datetime.datetime.now() - datetime.timedelta(days=days)
+                cutoff_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
+                self._all_apps = [app for app in self._all_apps if (app['created_at'] or "1970-01-01") >= cutoff_str]
+            except Exception as e:
+                print(f"Error filtering by time: {e}")
+        
         # Limit to 20 if Show All is off and not searching
         total_count = len(self._all_apps)
         if not self.show_all_var.get() and not search_query:
@@ -424,10 +483,15 @@ class Dashboard(ctk.CTkFrame):
                               text_color="gray", font=("Arial", 11, "italic"))
         notice.pack(pady=10)
 
-    def on_search_change(self, *args):
-        if self._search_timer:
-            self.after_cancel(self._search_timer)
-        self._search_timer = self.after(300, self.refresh_list)
+    def clear_search(self):
+        self.search_var.set("")
+        self.refresh_list()
+
+    def toggle_clear_button(self, *args):
+        if self.search_var.get():
+            self.clear_search_btn.place(relx=1.0, rely=0.5, anchor="e", x=-5)
+        else:
+            self.clear_search_btn.place_forget()
 
     def on_header_click(self, column):
         if self.sort_var.get() == column:
