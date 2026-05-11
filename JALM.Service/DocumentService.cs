@@ -31,8 +31,10 @@ public class DocumentService
             return;
         }
 
+        // Remove suffix like " (2)" or " 2" from the role before cleaning
+        string templateRole = Regex.Replace(role.Trim(), @"\s*\(?\d+\)?$", "");
         // Clean up the role name so it's safe to use as a filename (removes weird characters).
-        string roleClean = Regex.Replace(role, @"[^a-zA-Z0-9\s\-_]", "").Trim();
+        string roleClean = Regex.Replace(templateRole, @"[^a-zA-Z0-9\s\-_\(\)]", "").Trim();
 
         // Create the new filenames, like: "Binke_CV_Software Engineer.docx"
         string cvDest = Path.Combine(targetFolder, $"{userName}_CV_{roleClean}{Path.GetExtension(cvTemplate)}");

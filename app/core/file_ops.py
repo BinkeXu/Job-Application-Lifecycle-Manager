@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from pathlib import Path
 from .config_mgr import load_config, get_active_root
@@ -31,10 +32,13 @@ def create_application_folder(company, role, job_description=None, cv_template_p
     if not root_dir.exists():
         raise FileNotFoundError(f"Root directory does not exist: {root_dir}")
 
-    # Create Company/Role folder structure
     # Sanitize names for folder paths
-    company_clean = "".join(c for c in company if c.isalnum() or c in (' ', '_', '-')).strip()
-    role_clean = "".join(c for c in role if c.isalnum() or c in (' ', '_', '-')).strip()
+    company_clean = "".join(c for c in company if c.isalnum() or c in (' ', '_', '-', '(', ')')).strip()
+    role_clean = "".join(c for c in role if c.isalnum() or c in (' ', '_', '-', '(', ')')).strip()
+    
+    # Original role name without suffix for templates
+    template_role = re.sub(r'\s*\(?\d+\)?$', '', role.strip())
+    template_role_clean = "".join(c for c in template_role if c.isalnum() or c in (' ', '_', '-')).strip()
     
     app_folder = root_dir / company_clean / role_clean
     app_folder.mkdir(parents=True, exist_ok=True)
@@ -42,11 +46,11 @@ def create_application_folder(company, role, job_description=None, cv_template_p
     # Copy and rename templates
     user_name = config.get("user_name", "User")
     if cv_template.exists():
-        cv_dest = app_folder / f"{user_name}_CV_{role_clean}{cv_template.suffix}"
+        cv_dest = app_folder / f"{user_name}_CV_{template_role_clean}{cv_template.suffix}"
         shutil.copy2(cv_template, cv_dest)
     
     if cover_letter_template.exists():
-        cl_dest = app_folder / f"{user_name}_Cover Letter_{role_clean}{cover_letter_template.suffix}"
+        cl_dest = app_folder / f"{user_name}_Cover Letter_{template_role_clean}{cover_letter_template.suffix}"
         shutil.copy2(cover_letter_template, cl_dest)
 
     # Save Job Description
