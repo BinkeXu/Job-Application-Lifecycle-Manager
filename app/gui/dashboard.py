@@ -359,6 +359,9 @@ class Dashboard(ctk.CTkFrame):
         self.settings_btn = ctk.CTkButton(self.action_frame, text="Settings", width=100, command=self.on_open_settings)
         self.settings_btn.pack(side="right")
 
+        self.count_label = ctk.CTkLabel(self.action_frame, text="", font=("Arial", 11, "italic"), text_color="gray")
+        self.count_label.place(relx=0.5, rely=0.5, anchor="center")
+
     def refresh_data(self):
         """Deprecated: Use refresh_stats and refresh_list individually."""
         self.refresh_stats()
@@ -405,7 +408,8 @@ class Dashboard(ctk.CTkFrame):
         
         # Filter by time
         time_filter = getattr(self, 'time_filter_var', None)
-        if time_filter and time_filter.get() != "All Time":
+        is_time_filtered = time_filter and time_filter.get() != "All Time"
+        if is_time_filtered:
             try:
                 days = int(time_filter.get().replace("Days", "").strip())
                 import datetime
@@ -415,17 +419,20 @@ class Dashboard(ctk.CTkFrame):
             except Exception as e:
                 print(f"Error filtering by time: {e}")
         
-        # Limit to 20 if Show All is off and not searching
+        # Limit to 20 if Show All is off, not searching, and no time filter applied
         total_count = len(self._all_apps)
-        if not self.show_all_var.get() and not search_query:
+        if not self.show_all_var.get() and not search_query and not is_time_filtered:
             self._all_apps = self._all_apps[:20]
         
         # Render list in chunks for performance
         self._render_chunk(0)
         
-        # Show truncation notice if list was limited
-        if not self.show_all_var.get() and not search_query and total_count > 20:
-            self.after(200, lambda: self._show_truncation_notice(total_count))
+        # Update the count label at the bottom
+        displayed_count = len(self._all_apps)
+        if total_count > displayed_count:
+            self.count_label.configure(text=f"Showing {displayed_count} of {total_count} applications. Toggle 'Show All' to see more.")
+        else:
+            self.count_label.configure(text=f"Showing {displayed_count} application(s).")
 
     def _render_chunk(self, index, chunk_size=30):
         """Renders items in batches to populate the scroll area without freezing."""
@@ -473,15 +480,6 @@ class Dashboard(ctk.CTkFrame):
             
         self._is_resizing = False
         # No need to re-render everything on resize since pack handles layout
-
-    def _show_truncation_notice(self, total):
-        """Shows a notice when the list is truncated to 20 items."""
-        if not self.winfo_exists():
-            return
-        notice = ctk.CTkLabel(self.scrollable_frame, 
-                              text=f"Showing 20 of {total} applications. Toggle 'Show All' to see more.",
-                              text_color="gray", font=("Arial", 11, "italic"))
-        notice.pack(pady=10)
 
     def clear_search(self):
         self.search_var.set("")
