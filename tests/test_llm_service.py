@@ -1,7 +1,8 @@
 import pytest
-from app.core.llm_service import classify_job_title
+from app.core.llm_service import classify_job_title, reset_llm_status
 
 def test_classify_job_title_success(mocker):
+    reset_llm_status()
     # Mock urllib.request.urlopen returning a successful response
     mock_response = mocker.Mock()
     mock_response.read.return_value = b'{"response": "Data Engineer"}'
@@ -16,6 +17,7 @@ def test_classify_job_title_success(mocker):
     assert result == "Data Engineer"
 
 def test_classify_job_title_invalid_json(mocker):
+    reset_llm_status()
     # Ensure it falls back to title case on failure
     mock_urlopen = mocker.patch("urllib.request.urlopen", side_effect=Exception("Connection refused"))
     mocker.patch("app.core.llm_service.get_current_model", return_value="llama3.2")

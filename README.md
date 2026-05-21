@@ -18,6 +18,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **AI-Powered Role Categorization**: Integrates with a local LLM (Ollama, `llama3.2` by default) to automatically organize highly varied or messy job titles (e.g., "Junior Web Developer", "SWE") into standardized, clean professional buckets (e.g., "Software Engineer"). 
         - Uses a persistent SQLite cache (`role_mappings` table) so API calls are instantaneous after the first run.
         - Includes an interactive **Role Classification Manager** UI to review AI decisions, manually override them, change the active LLM model, or clear the cache to force a re-evaluation of all data.
+        - **Fail-Safe Circuit Breaker**: Automatically trips if the Ollama model is missing (HTTP 404) or offline, fallbacking instantly to title case for remaining roles in the session to prevent GUI hanging.
     - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. OA vs. HR Call vs. Interviewed vs. Offer).
     - **Status Distribution**: Interactive pie charts with hover tooltips and a continuous date-padded timeline.
     - **Detailed Funnel Reporting**: Generate a comprehensive **Summary Report** with segmented tracking for **OA**, **HR Call**, and **Interview** stages.
@@ -30,7 +31,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **Smart Indexing**: Intelligently handles multiple applications to the same company/role by automatically adding sequential indices (e.g., "Software Engineer (2)").
 - **High Performance**:
     - **Asynchronous Processing**: Background threads execute AI operations or heavy data fetches so the GUI never hangs.
-    - **Limit & Toggle**: Shows most recent 20 applications by default for instant loading, with a "Show All" toggle for full history.
+    - **Pagination & Direct Page Jump**: Navigates records in pages of 20 with an interactive page entry input allowing direct jump navigation (Enter/FocusOut triggers) alongside Prev/Next buttons. This keeps UI rendering instantaneous regardless of database size.
     - **Optimized Search & Filtering**: Filter by company or role using the debounced search bar (supports Enter key) and quickly filter by time ("7 Days", "30 Days") using the built-in dropdown.
     - **Database Indexing**: Optimized SQLite queries inside each workspace.
 - **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.

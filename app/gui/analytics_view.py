@@ -345,6 +345,10 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         Gathers detailed analytics data in a background thread and 
         displays it in a structured ReportDialog modal to avoid freezing the UI.
         """
+        # Reset the circuit breaker for a fresh attempt
+        from ..core.llm_service import reset_llm_status
+        reset_llm_status()
+        
         start = self.start_date_var.get().strip()
         end = self.end_date_var.get().strip()
         range_text = f"{start} to {end}" if (start and end) else "All Time"
@@ -387,6 +391,13 @@ class AnalyticsDashboard(ctk.CTkToplevel):
             except Exception:
                 pass
         
+        def safe_progress_callback(c, t, r):
+            try:
+                if self.winfo_exists():
+                    self.after(0, update_progress, c, t, r)
+            except Exception:
+                pass
+        
         def fetch_data():
             from ..core.database import get_detailed_analytics
             
@@ -394,13 +405,18 @@ class AnalyticsDashboard(ctk.CTkToplevel):
                 metrics = get_detailed_analytics(
                     start if start else None, 
                     end if end else None,
-                    progress_callback=lambda c, t, r: self.after(0, update_progress, c, t, r)
+                    progress_callback=safe_progress_callback
                 )
                 # Safely update GUI from main thread
-                self.after(0, self._show_report_dialog, metrics, range_text, loading)
+                if self.winfo_exists():
+                    self.after(0, self._show_report_dialog, metrics, range_text, loading)
             except Exception as e:
                 print(f"Error generating report: {e}")
-                self.after(0, loading.destroy)
+                if self.winfo_exists():
+                    try:
+                        self.after(0, loading.destroy)
+                    except Exception:
+                        pass
 
         import threading
         threading.Thread(target=fetch_data, daemon=True).start()

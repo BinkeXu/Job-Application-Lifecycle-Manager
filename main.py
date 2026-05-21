@@ -26,14 +26,16 @@ class JALMApp(ctk.CTk):
         # 3. Hybrid Sync & AI Startup
         # We start the .NET background service right away.
         # This service handles real-time folder watching and document generation.
-        self.start_ollama()
+        # We also attempt to spin up Ollama silently in the background.
+        self.ollama_proc = self.start_ollama()
         self.service_mgr = ServiceManager()
         self.service_mgr.start_service()
 
         # 4. Safe Shutdown
         # 'atexit' ensures that when the user closes this Python app, 
-        # the background .NET service is also stopped automatically.
+        # the background .NET service and the started Ollama server are stopped automatically.
         atexit.register(self.service_mgr.stop_service)
+        atexit.register(self.stop_ollama)
         
         # Bind close handler to ensure clean shutdown
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -48,7 +50,10 @@ class JALMApp(ctk.CTk):
             self.init_main_ui()
 
     def start_ollama(self):
-        """Attempts to start the local Ollama server silently in the background."""
+        """
+        Attempts to start the local Ollama server silently in the background.
+        Returns the subprocess.Popen object if launched, or None if it fails.
+        """
         try:
             # Hide the console window on Windows
             startupinfo = None
@@ -57,14 +62,40 @@ class JALMApp(ctk.CTk):
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
             
             # Launch ollama serve in the background, suppressing output.
-            # If it's already running, this will just fail quietly.
-            subprocess.Popen(['ollama', 'serve'], 
+            # If it's already running, this process will fail to bind to port 11434 
+            # and exit immediately.
+            proc = subprocess.Popen(['ollama', 'serve'], 
                              startupinfo=startupinfo, 
                              stdout=subprocess.DEVNULL, 
                              stderr=subprocess.DEVNULL)
             print("Auto-started Ollama background service.")
+            return proc
         except Exception as e:
             print(f"Could not auto-start Ollama: {e}")
+            return None
+
+    def stop_ollama(self):
+        """
+        Stops the Ollama server if it was started by this application instance.
+        If Ollama was already running beforehand, this will not interfere with it
+        since the spawned subprocess would have exited on its own (port conflict).
+        """
+        if hasattr(self, 'ollama_proc') and self.ollama_proc:
+            # poll() is None indicates the process is still running.
+            # If it already terminated (e.g. due to port conflict), we do not run terminate().
+            if self.ollama_proc.poll() is None:
+                try:
+                    print("Stopping Ollama background service...")
+                    self.ollama_proc.terminate()
+                    self.ollama_proc.wait(timeout=3)
+                    print("Stopped Ollama background service.")
+                except subprocess.TimeoutExpired:
+                    # Force kill if it takes too long
+                    self.ollama_proc.kill()
+                    print("Forcibly stopped Ollama background service.")
+                except Exception as e:
+                    print(f"Error stopping Ollama service: {e}")
+            self.ollama_proc = None
 
     def show_setup_wizard(self):
         """Displays the step-by-step installation guide (Setup Wizard)."""
@@ -92,6 +123,9 @@ class JALMApp(ctk.CTk):
                 widget.destroy()
         except Exception:
             pass
+        
+        # Terminate the background Ollama process if running
+        self.stop_ollama()
         
         # Quit the mainloop first to stop processing events, then destroy the main window.
         self.quit()

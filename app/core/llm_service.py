@@ -6,6 +6,13 @@ from .constants import CATEGORIES
 
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 
+_ollama_offline = False
+
+def reset_llm_status():
+    """Resets the circuit breaker, allowing JALM to try calling Ollama again."""
+    global _ollama_offline
+    _ollama_offline = False
+
 def get_current_model():
     return load_config().get("ollama_model", "llama3.2")
 
@@ -26,6 +33,10 @@ def classify_job_title(role_name: str, model_name: str = None) -> str:
     """
     Sends a zero-shot prompt to the local Ollama instance to categorize the job title.
     """
+    global _ollama_offline
+    if _ollama_offline:
+        return role_name.title()
+
     if not model_name:
         model_name = get_current_model()
 
@@ -69,8 +80,16 @@ Category:"""
                 
             print(f"Result: {category}")
             return category
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            print(f"\n[LLM Error] Ollama model '{model_name}' not found. Please run 'ollama pull {model_name}' in your terminal to download it.")
+            _ollama_offline = True
+        else:
+            print(f"\n[LLM Error] Ollama HTTP error {e.code}: {e.reason}")
+        return role_name.title()
     except urllib.error.URLError as e:
         print(f"\n[LLM Error] Ollama is not running or unreachable: {e}")
+        _ollama_offline = True
         return role_name.title()
     except Exception as e:
         print(f"\n[LLM Error] Error calling Ollama: {e}")
@@ -78,6 +97,8 @@ Category:"""
 
 def set_ollama_model(model_name: str):
     """Updates the default model used for classification in the config."""
+    global _ollama_offline
+    _ollama_offline = False
     config = load_config()
     config["ollama_model"] = model_name
     save_config(config)

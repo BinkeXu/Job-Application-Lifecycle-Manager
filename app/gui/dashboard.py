@@ -164,28 +164,22 @@ class Dashboard(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self._search_timer = None
         self._render_job = None
-        self._resize_timer = None
         self._refresh_job = None
-        self._is_resizing = False
-        self._last_size = None
         self.sort_order = "DESC"
         
-        # Virtual scrolling
+        # Pagination state
+        self.current_page = 1
+        self.page_size = 20
         self._all_apps = []
-        self._visible_items = []
-        self.ITEM_HEIGHT = 54  # Height of each AppListItem
         
         self.setup_ui()
         self._last_app_count = 0
         
         self.refresh_stats()
-        self.refresh_list()
+        self.refresh_list(reset_scroll=True)
         
         # Start auto-refresh poller
         self._setup_auto_refresh()
-        
-        # Bind resize event for throttling
-        self.bind("<Configure>", self._on_resize)
         
         # Bind destroy event for cleanup
         self.bind("<Destroy>", self._on_destroy_event)
@@ -232,13 +226,12 @@ class Dashboard(ctk.CTkFrame):
             # If the number of jobs changed (Sync added a new folder!), update the UI.
             if current_total != self._last_app_count:
                 self._last_app_count = current_total
-                self.refresh_list()
+                self.refresh_list(reset_scroll=False)
                 
                 # Update the numbers at the top of the screen.
                 self.total_apps_card.update_value(current_total)
                 self.active_apps_card.update_value(interviewing)
         
-        # Check again in 10 seconds.
         # Check again in 10 seconds.
         self._refresh_job = self.after(10000, self._auto_refresh)
 
@@ -277,10 +270,8 @@ class Dashboard(ctk.CTkFrame):
         self.filter_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
         self.filter_frame.pack(side="left", padx=(0, 20))
 
-        # Show All Toggle
-        self.show_all_var = ctk.BooleanVar(value=False)
-        self.show_all_switch = ctk.CTkSwitch(self.filter_frame, text="Show All", variable=self.show_all_var, command=self.refresh_list)
-        self.show_all_switch.pack(anchor="w", pady=(0, 5))
+        # Compatibility state variables (no longer shown in UI as virtual list handles everything)
+        self.show_all_var = ctk.BooleanVar(value=True)
 
         # Time Filter
         self.time_filter_var = ctk.StringVar(value="All Time")
@@ -288,11 +279,11 @@ class Dashboard(ctk.CTkFrame):
             self.filter_frame, 
             values=["All Time", "7 Days", "14 Days", "30 Days", "60 Days"], 
             variable=self.time_filter_var, 
-            command=lambda e: self.refresh_list(),
-            height=24,
-            width=100
+            command=lambda e: self.refresh_list(reset_scroll=True),
+            height=30,
+            width=120
         )
-        self.time_filter_menu.pack(anchor="w")
+        self.time_filter_menu.pack(pady=5)
 
         # Reload Button
         self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
@@ -342,6 +333,53 @@ class Dashboard(ctk.CTkFrame):
         self.date_header.pack(side="left", padx=10)
         self.date_header.bind("<Button-1>", lambda e: self.on_header_click("Date"))
 
+        # Pagination controls frame at the bottom of the list_frame
+        self.pagination_frame = ctk.CTkFrame(self.list_frame, fg_color="transparent", height=40)
+        self.pagination_frame.pack(side="bottom", fill="x", padx=10, pady=10)
+        
+        self.prev_btn = ctk.CTkButton(
+            self.pagination_frame, 
+            text="◀ Previous", 
+            width=100, 
+            command=self.prev_page
+        )
+        self.prev_btn.pack(side="left")
+        
+        # Sub-frame for page selection/indicator in the middle
+        self.middle_frame = ctk.CTkFrame(self.pagination_frame, fg_color="transparent")
+        self.middle_frame.pack(side="left", expand=True)
+        
+        self.page_label = ctk.CTkLabel(
+            self.middle_frame, 
+            text="Page", 
+            font=("Arial", 12, "bold")
+        )
+        self.page_label.pack(side="left")
+        
+        self.page_entry = ctk.CTkEntry(
+            self.middle_frame, 
+            width=50, 
+            height=28
+        )
+        self.page_entry.pack(side="left", padx=5)
+        self.page_entry.bind("<Return>", self.on_page_entry_submit)
+        self.page_entry.bind("<FocusOut>", self.on_page_entry_submit)
+        
+        self.of_label = ctk.CTkLabel(
+            self.middle_frame, 
+            text="of 1", 
+            font=("Arial", 12, "bold")
+        )
+        self.of_label.pack(side="left")
+        
+        self.next_btn = ctk.CTkButton(
+            self.pagination_frame, 
+            text="Next ▶", 
+            width=100, 
+            command=self.next_page
+        )
+        self.next_btn.pack(side="right")
+
         # Scrollable area for items
         self.scrollable_frame = ctk.CTkScrollableFrame(self.list_frame)
         self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
@@ -365,7 +403,7 @@ class Dashboard(ctk.CTkFrame):
     def refresh_data(self):
         """Deprecated: Use refresh_stats and refresh_list individually."""
         self.refresh_stats()
-        self.refresh_list()
+        self.refresh_list(reset_scroll=False)
 
     def refresh_stats(self):
         """Fetches the latest numbers and updates the cards at the top of the app."""
@@ -390,16 +428,64 @@ class Dashboard(ctk.CTkFrame):
                     # If the file is being written to by the service, just skip this update.
                     pass
 
-    def refresh_list(self):
+    def prev_page(self):
+        """Navigate to the previous page."""
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.refresh_list(reset_scroll=False)
+
+    def next_page(self):
+        """Navigate to the next page."""
+        import math
+        total_pages = max(1, math.ceil(len(self._all_apps) / self.page_size))
+        if self.current_page < total_pages:
+            self.current_page += 1
+            self.refresh_list(reset_scroll=False)
+
+    def on_page_entry_submit(self, event=None):
+        """Handle page number submission from the entry widget."""
+        val = self.page_entry.get().strip()
+        if not val:
+            # Revert to current page if empty
+            self.page_entry.delete(0, "end")
+            self.page_entry.insert(0, str(self.current_page))
+            return
+            
+        try:
+            page = int(val)
+            import math
+            total_pages = max(1, math.ceil(len(self._all_apps) / self.page_size))
+            
+            # Clamp page number
+            if page < 1:
+                page = 1
+            elif page > total_pages:
+                page = total_pages
+                
+            if page != self.current_page:
+                self.current_page = page
+                self.refresh_list(reset_scroll=False)
+            else:
+                # Refresh input field display
+                self.page_entry.delete(0, "end")
+                self.page_entry.insert(0, str(self.current_page))
+        except ValueError:
+            # Revert input field display
+            self.page_entry.delete(0, "end")
+            self.page_entry.insert(0, str(self.current_page))
+
+    def refresh_list(self, reset_scroll=True):
         # Cancel any pending render job
         if self._render_job:
             self.after_cancel(self._render_job)
             self._render_job = None
 
+        if reset_scroll:
+            self.current_page = 1
+
         # Clear existing
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
-        self._visible_items.clear()
 
         search_query = self.search_var.get()
         sort_by = self.sort_var.get()
@@ -419,71 +505,47 @@ class Dashboard(ctk.CTkFrame):
             except Exception as e:
                 print(f"Error filtering by time: {e}")
         
-        # Limit to 20 if Show All is off, not searching, and no time filter applied
+        # Calculate pagination boundaries
+        import math
         total_count = len(self._all_apps)
-        if not self.show_all_var.get() and not search_query and not is_time_filtered:
-            self._all_apps = self._all_apps[:20]
+        total_pages = max(1, math.ceil(total_count / self.page_size))
         
-        # Render list in chunks for performance
-        self._render_chunk(0)
-        
-        # Update the count label at the bottom
-        displayed_count = len(self._all_apps)
-        if total_count > displayed_count:
-            self.count_label.configure(text=f"Showing {displayed_count} of {total_count} applications. Toggle 'Show All' to see more.")
-        else:
-            self.count_label.configure(text=f"Showing {displayed_count} application(s).")
-
-    def _render_chunk(self, index, chunk_size=30):
-        """Renders items in batches to populate the scroll area without freezing."""
-        if not self.winfo_exists():
-            return
-
-        if self._is_resizing:
-            self._render_job = self.after(100, lambda: self._render_chunk(index, chunk_size))
-            return
+        # Clamp current page
+        if self.current_page > total_pages:
+            self.current_page = total_pages
+        if self.current_page < 1:
+            self.current_page = 1
             
-        end_index = min(index + chunk_size, len(self._all_apps))
+        start_idx = (self.current_page - 1) * self.page_size
+        end_idx = min(start_idx + self.page_size, total_count)
+        page_apps = self._all_apps[start_idx:end_idx]
         
-        for i in range(index, end_index):
-            app = self._all_apps[i]
+        # Render sliced items
+        for app in page_apps:
             item = AppListItem(self.scrollable_frame, app, self.refresh_data)
             item.pack(fill="x", pady=2)
-            self._visible_items.append(item)
             
-        if end_index < len(self._all_apps):
-            self._render_job = self.after(20, lambda: self._render_chunk(end_index, chunk_size))
-        else:
-            self._render_job = None
-
-    def _on_resize(self, event=None):
-        """Handle window resize events with throttling and filtering"""
-        # Only respond to resize of this widget, not children
-        if event and event.widget != self:
-            return
-            
-        # Check if size actually changed
-        current_size = (self.winfo_width(), self.winfo_height())
-        if self._last_size == current_size:
-            return
-        self._last_size = current_size
+        # Update pagination indicator & entry value
+        self.of_label.configure(text=f"of {total_pages}")
+        self.page_entry.delete(0, "end")
+        self.page_entry.insert(0, str(self.current_page))
         
-        self._is_resizing = True
-        if self._resize_timer:
-            self.after_cancel(self._resize_timer)
-        self._resize_timer = self.after(300, self._on_resize_complete)
-    
-    def _on_resize_complete(self):
-        """Resume rendering after resize is complete"""
-        if not self.winfo_exists():
-            return
+        if self.current_page == 1:
+            self.prev_btn.configure(state="disabled")
+        else:
+            self.prev_btn.configure(state="normal")
             
-        self._is_resizing = False
-        # No need to re-render everything on resize since pack handles layout
+        if self.current_page == total_pages:
+            self.next_btn.configure(state="disabled")
+        else:
+            self.next_btn.configure(state="normal")
+        
+        # Update the count label at the bottom
+        self.count_label.configure(text=f"Showing {len(page_apps)} of {total_count} application(s).")
 
     def clear_search(self):
         self.search_var.set("")
-        self.refresh_list()
+        self.refresh_list(reset_scroll=True)
 
     def toggle_clear_button(self, *args):
         if self.search_var.get():
@@ -508,7 +570,7 @@ class Dashboard(ctk.CTkFrame):
         self.status_header.configure(text=f"Status {arrow('Status')}")
         self.date_header.configure(text=f"Date {arrow('Date')}")
         
-        self.refresh_list()
+        self.refresh_list(reset_scroll=True)
 
     def on_add_application(self):
         dialog = AddAppDialog(self.winfo_toplevel(), self.save_new_application)
@@ -579,7 +641,8 @@ class Dashboard(ctk.CTkFrame):
             write_jalm_id(folder_path, app_id)
             
             # 3. Refresh UI
-            self.refresh_data()
+            self.refresh_stats()
+            self.refresh_list(reset_scroll=True)
             
             # 4. Open Folder
             open_folder(folder_path)
@@ -621,9 +684,6 @@ class Dashboard(ctk.CTkFrame):
             if self._render_job:
                 self.after_cancel(self._render_job)
                 self._render_job = None
-            if self._resize_timer:
-                self.after_cancel(self._resize_timer)
-                self._resize_timer = None
             if self._search_timer:
                 self.after_cancel(self._search_timer)
                 self._search_timer = None

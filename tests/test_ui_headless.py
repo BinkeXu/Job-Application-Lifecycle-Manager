@@ -68,6 +68,34 @@ def test_all_gui_components_headless(mocker):
     mock_master = DummyWidget()
     
     dash = Dashboard(mock_master)
+    # Test pagination functionality
+    assert dash.current_page == 1
+    mocker.patch("app.gui.dashboard.get_applications", return_value=[{"id": i, "company_name": "A", "role_name": "D", "folder_path": "", "status": "Applied", "created_at": "2026-01-01"} for i in range(50)])
+    dash.refresh_list()
+    dash.next_page()
+    assert dash.current_page == 2
+    dash.next_page()
+    assert dash.current_page == 3
+    dash.next_page() # Clamp at max page
+    assert dash.current_page == 3
+    dash.prev_page()
+    assert dash.current_page == 2
+    dash.prev_page()
+    assert dash.current_page == 1
+    dash.prev_page() # Clamp at min page
+    assert dash.current_page == 1
+    
+    # Test direct page selection entry submission
+    dash.page_entry.get = MagicMock(return_value="2")
+    dash.on_page_entry_submit()
+    assert dash.current_page == 2
+    dash.page_entry.get = MagicMock(return_value="3")
+    dash.on_page_entry_submit()
+    assert dash.current_page == 3
+    dash.page_entry.get = MagicMock(return_value="1")
+    dash.on_page_entry_submit()
+    assert dash.current_page == 1
+    
     dash.search_query = DummyVar("test")
     dash.filter_applications()
     dash.scan_folders()
@@ -91,7 +119,20 @@ def test_all_gui_components_headless(mocker):
     im = InterviewManager(mock_master, 1, "Google", "Dev")
     im.save_note()
     
-    rd = ReportDialog(mock_master, {}, "All Time")
+    dummy_metrics = {
+        "total_apps": 0,
+        "oa_count": 0,
+        "hr_call_count": 0,
+        "interviews_secured": 0,
+        "offers_count": 0,
+        "interview_roles_list": [],
+        "oa_roles_list": [],
+        "hr_call_roles_list": [],
+        "by_status": [],
+        "by_company": [],
+        "by_role": []
+    }
+    rd = ReportDialog(mock_master, dummy_metrics, "All Time")
     
     rm = RoleMappingDialog(mock_master)
     rm.save_mapping()
