@@ -32,7 +32,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **High Performance**:
     - **Asynchronous Processing**: Background threads execute AI operations or heavy data fetches so the GUI never hangs.
     - **Pagination & Direct Page Jump**: Navigates records in pages of 20 with an interactive page entry input allowing direct jump navigation (Enter/FocusOut triggers) alongside Prev/Next buttons. This keeps UI rendering instantaneous regardless of database size.
-    - **Optimized Search & Filtering**: Filter by company or role using the debounced search bar (supports Enter key) and quickly filter by time ("7 Days", "30 Days") using the built-in dropdown.
+    - **Optimized Search & Filtering**: Filter by company or role using the debounced search bar (supports Enter key), quickly filter by time ("7 Days", "30 Days") using the built-in time dropdown, or filter by specific pipeline statuses ("OA", "Interviewed", etc.) with the status dropdown.
     - **Database Indexing**: Optimized SQLite queries inside each workspace.
 - **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.
 - **Sleek UI**:
@@ -92,7 +92,7 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 4. **Cover Letter Template**: A `.docx` file to be used as a template for cover letters.
 
 ### Managing Applications
-- **Search & Filter**: Enter text in the search bar and click **Search** or press **Enter** to filter. Click anywhere else to unfocus the search bar, or use the 'x' button to clear it. Use the time filter dropdown next to the "Show All" toggle to view applications from the last 7, 14, 30, or 60 days.
+- **Search & Filter**: Enter text in the search bar and click **Search** or press **Enter** to filter. Click anywhere else to unfocus the search bar, or use the 'x' button to clear it. Use the time filter dropdown next to the "Show All" toggle to view applications from the last 7, 14, 30, or 60 days, and the status filter dropdown to filter by specific pipeline stages (e.g., OA, Interviewed, Offer).
 - **Scan & Reload**: Click this to sync your dashboard with your folder structure. It imports new folders and removes "broken" links for folders you've deleted manually.
 - **List Limit**: By default, JALM shows the 20 most recent applications. Toggle **Show All** to view your entire history.
 - **Sorting**: Click the **Company** or **Date** headers to toggle sort direction.

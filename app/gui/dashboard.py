@@ -283,7 +283,19 @@ class Dashboard(ctk.CTkFrame):
             height=30,
             width=120
         )
-        self.time_filter_menu.pack(pady=5)
+        self.time_filter_menu.pack(side="left", padx=(0, 10))
+
+        # Status Filter
+        self.status_filter_var = ctk.StringVar(value="All Statuses")
+        self.status_filter_menu = ctk.CTkOptionMenu(
+            self.filter_frame,
+            values=["All Statuses", "Applied", "OA", "HR Call", "Interviewed", "Offer", "Rejected", "Ghosted"],
+            variable=self.status_filter_var,
+            command=lambda e: self.refresh_list(reset_scroll=True),
+            height=30,
+            width=130
+        )
+        self.status_filter_menu.pack(side="left")
 
         # Reload Button
         self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
@@ -504,6 +516,13 @@ class Dashboard(ctk.CTkFrame):
                 self._all_apps = [app for app in self._all_apps if (app['created_at'] or "1970-01-01") >= cutoff_str]
             except Exception as e:
                 print(f"Error filtering by time: {e}")
+
+        # Filter by status
+        status_filter = getattr(self, 'status_filter_var', None)
+        is_status_filtered = status_filter and status_filter.get() != "All Statuses"
+        if is_status_filtered:
+            target_status = status_filter.get()
+            self._all_apps = [app for app in self._all_apps if app['status'] == target_status]
         
         # Calculate pagination boundaries
         import math

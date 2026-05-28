@@ -70,8 +70,29 @@ def test_all_gui_components_headless(mocker):
     dash = Dashboard(mock_master)
     # Test pagination functionality
     assert dash.current_page == 1
-    mocker.patch("app.gui.dashboard.get_applications", return_value=[{"id": i, "company_name": "A", "role_name": "D", "folder_path": "", "status": "Applied", "created_at": "2026-01-01"} for i in range(50)])
+    
+    # Test status filtering
+    mock_apps = []
+    for i in range(50):
+        status = "OA" if i % 2 == 0 else "Applied"
+        mock_apps.append({"id": i, "company_name": "A", "role_name": "D", "folder_path": "", "status": status, "created_at": "2026-01-01"})
+    mocker.patch("app.gui.dashboard.get_applications", return_value=mock_apps)
+    
+    # Refresh list and verify all are retrieved initially
     dash.refresh_list()
+    assert len(dash._all_apps) == 50
+    
+    # Filter by OA status
+    dash.status_filter_var.set("OA")
+    dash.refresh_list()
+    assert len(dash._all_apps) == 25
+    assert all(app['status'] == "OA" for app in dash._all_apps)
+    
+    # Reset filter
+    dash.status_filter_var.set("All Statuses")
+    dash.refresh_list()
+    assert len(dash._all_apps) == 50
+
     dash.next_page()
     assert dash.current_page == 2
     dash.next_page()
