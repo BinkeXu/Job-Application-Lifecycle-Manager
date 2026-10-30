@@ -11,7 +11,7 @@ DB_NAME = "jalm_apps.db"
 def get_db_connection():
     """Establishes a connection to the SQLite database inside the active root."""
     root = get_active_root()
-    if not root:
+    if not root or not os.path.exists(root):
         # If no project is selected yet, save the DB in the current folder.
         conn = sqlite3.connect(DB_NAME)
     else:
@@ -90,7 +90,7 @@ def init_db():
     finally:
         conn.close()
 
-def get_mapped_role(role_name):
+def get_mapped_role(role_name, skip_llm=False):
     """Checks the database for a cached category, otherwise asks the LLM and caches it."""
     if not role_name:
         return "Unknown Role"
@@ -104,6 +104,10 @@ def get_mapped_role(role_name):
         if row:
             return row[0]
             
+        # If skip_llm is requested, immediately fallback to title case without calling Ollama
+        if skip_llm:
+            return role_name.title()
+
         # If not found, call LLM
         try:
             from .llm_service import classify_job_title
@@ -190,7 +194,7 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
             query_str += f' ORDER BY {column} {sort_order}'
         
         cursor.execute(query_str, params)
-        apps = cursor.fetchall()
+        apps = [dict(row) for row in cursor.fetchall()]
         return apps
     finally:
         conn.close()
@@ -220,6 +224,16 @@ def update_application_status(app_id, status):
     finally:
         conn.close()
 
+def update_application_job_description(app_id, job_description):
+    """Updates the job description of an application."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute('UPDATE applications SET job_description = ? WHERE id = ?', (job_description, app_id))
+        conn.commit()
+    finally:
+        conn.close()
+
 def update_application_paths(app_id, company_name, role_name, folder_path):
     """Updates the company, role, and folder path for an existing application."""
     conn = get_db_connection()
@@ -242,7 +256,7 @@ def get_application_by_id(app_id):
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM applications WHERE id = ?', (app_id,))
         app = cursor.fetchone()
-        return app
+        return dict(app) if app else None
     finally:
         conn.close()
 
@@ -283,7 +297,7 @@ def get_interviews(app_id):
     try:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM interviews WHERE app_id = ? ORDER BY sequence ASC', (app_id,))
-        interviews = cursor.fetchall()
+        interviews = [dict(row) for row in cursor.fetchall()]
         return interviews
     finally:
         conn.close()
@@ -425,7 +439,7 @@ def get_daily_status_counts(start_date=None, end_date=None):
     finally:
         conn.close()
 
-def get_detailed_analytics(start_date=None, end_date=None, progress_callback=None):
+def get_detailed_analytics(start_date=None, end_date=None, progress_callback=None, skip_llm=False, check_skip_fn=None):
     """
     Returns a detailed drill-down of application stats for the reporting view.
     Includes:
@@ -517,7 +531,8 @@ def get_detailed_analytics(start_date=None, end_date=None, progress_callback=Non
         role_counts = {}
         total_roles = len(raw_roles)
         for i, (role_name, count) in enumerate(raw_roles):
-            category = get_mapped_role(role_name)
+            should_skip = skip_llm or (check_skip_fn() if check_skip_fn else False)
+            category = get_mapped_role(role_name, skip_llm=should_skip)
             role_counts[category] = role_counts.get(category, 0) + count
             if progress_callback:
                 progress_callback(i + 1, total_roles, role_name)

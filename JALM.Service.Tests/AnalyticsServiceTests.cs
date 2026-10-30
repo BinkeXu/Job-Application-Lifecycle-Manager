@@ -36,8 +36,7 @@ public class AnalyticsServiceTests : IDisposable
         
         _configService = new ConfigService(mockLogger.Object);
         // Force ActiveRoot via Reflection to bypass OS path escaping anomalies
-        var prop = typeof(ConfigService).GetProperty("ActiveRoot");
-        prop.DeclaringType.GetProperty("ActiveRoot").SetValue(_configService, _tempDir, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance, null, null, null);
+        typeof(ConfigService).GetProperty("ActiveRoot")?.SetValue(_configService, _tempDir);
         
         _dbService = new DatabaseService(_configService, new Mock<ILogger<DatabaseService>>().Object);
         _analyticsService = new AnalyticsService(_dbService, _configService, new Mock<ILogger<AnalyticsService>>().Object);
@@ -64,6 +63,7 @@ public class AnalyticsServiceTests : IDisposable
             cmd.CommandText = @"
                 INSERT INTO applications (company_name, role_name, folder_path, created_at, status) VALUES ('Apple', 'Dev', '/a/b', '2026-01-01', 'Applied');
                 INSERT INTO applications (company_name, role_name, folder_path, created_at, status) VALUES ('Google', 'Lead, UX', '/b/c', '2026-01-01', 'Offer');
+                INSERT INTO applications (company_name, role_name, folder_path, created_at, status) VALUES ('Microsoft', 'Engineer', '/c/d', '2026-01-01', 'Interviewed');
             ";
             cmd.ExecuteNonQuery();
         }
@@ -79,14 +79,15 @@ public class AnalyticsServiceTests : IDisposable
         Assert.True(File.Exists(jsonPath));
         var jsonStr = File.ReadAllText(jsonPath);
         using var doc = JsonDocument.Parse(jsonStr);
-        Assert.Equal(2, doc.RootElement.GetProperty("TotalApplications").GetInt32());
+        Assert.Equal(3, doc.RootElement.GetProperty("TotalApplications").GetInt32());
         Assert.Equal(1, doc.RootElement.GetProperty("Offers").GetInt32());
+        Assert.Equal(1, doc.RootElement.GetProperty("Interviewing").GetInt32());
 
         // Assert CSV Output
         var csvPath = Path.Combine(_tempDir, "applications_export.csv");
         Assert.True(File.Exists(csvPath));
         var lines = File.ReadAllLines(csvPath);
-        Assert.Equal(3, lines.Length); // 1 header + 2 rows
+        Assert.Equal(4, lines.Length); // 1 header + 3 rows
         // Verify CSV escaping worked for the comma in role
         Assert.Contains("\"Lead, UX\"", lines[1] + lines[2]);
     }

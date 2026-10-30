@@ -191,13 +191,14 @@ class SetupWizard(ctk.CTkToplevel):
 
         set_active_root(self.root_dir_var.get())
         
-        new_config = {
+        current_config = load_config()
+        current_config.update({
             "user_name": self.user_name_var.get().strip(),
             "cv_template_path": self.cv_path_var.get(),
             "cover_letter_template_path": self.cl_path_var.get(),
             "additional_cv_templates": self.additional_templates
-        }
-        save_config(new_config)
+        })
+        save_config(current_config)
         
         # Initialize the database in the new root
         init_db()

@@ -69,7 +69,10 @@ class AnalyticsDashboard(ctk.CTkToplevel):
 
         # View Report Button (Primary Action Style)
         self.report_btn = ctk.CTkButton(self.toolbar, text="📄 View Report", width=100, command=self.open_summary_report)
-        self.report_btn.pack(side="right", padx=10)
+        self.report_btn.pack(side="right", padx=(5, 10))
+        self.skip_llm_var = ctk.BooleanVar(value=False)
+        self.skip_llm_chk = ctk.CTkCheckBox(self.toolbar, text="Skip AI", variable=self.skip_llm_var, width=80)
+        self.skip_llm_chk.pack(side="right", padx=(0, 5))
 
         # 2. Charts Area
         self.charts_frame = ctk.CTkFrame(self)
@@ -356,7 +359,7 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # Show a loading dialog
         loading = ctk.CTkToplevel(self)
         loading.title("Loading...")
-        loading.geometry("450x200")
+        loading.geometry("450x240")
         
         # Center the loading dialog
         loading.update_idletasks()
@@ -378,6 +381,28 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         
         status_label = ctk.CTkLabel(loading, text="Initializing data...", text_color="gray", font=("Arial", 12))
         status_label.pack()
+
+        import threading
+        skip_event = threading.Event()
+        if hasattr(self, 'skip_llm_var') and self.skip_llm_var.get():
+            skip_event.set()
+
+        def trigger_skip():
+            skip_event.set()
+            btn_skip.configure(state="disabled", text="Skipping AI...")
+            status_label.configure(text="AI skipped — finalizing report...")
+
+        btn_skip = ctk.CTkButton(
+            loading, 
+            text="⏩ Skip AI for Remaining", 
+            width=180, 
+            height=28,
+            fg_color="#D97706", 
+            hover_color="#B45309", 
+            command=trigger_skip
+        )
+        if not skip_event.is_set():
+            btn_skip.pack(pady=(12, 0))
         
         loading.update()
         
@@ -405,7 +430,9 @@ class AnalyticsDashboard(ctk.CTkToplevel):
                 metrics = get_detailed_analytics(
                     start if start else None, 
                     end if end else None,
-                    progress_callback=safe_progress_callback
+                    progress_callback=safe_progress_callback,
+                    skip_llm=skip_event.is_set(),
+                    check_skip_fn=skip_event.is_set
                 )
                 # Safely update GUI from main thread
                 if self.winfo_exists():

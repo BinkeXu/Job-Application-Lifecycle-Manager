@@ -22,6 +22,7 @@ class AppListItem(ctk.CTkFrame):
     def __init__(self, parent, app_data, on_refresh):
         # Optimized: Flat widgets (no corner radius) for fastest rendering
         super().__init__(parent, height=50, corner_radius=0) 
+        self.pack_propagate(False)
         self.app_data = app_data
         self.on_refresh = on_refresh
         self.setup_ui()
@@ -54,6 +55,8 @@ class AppListItem(ctk.CTkFrame):
         # Actions - Pack directly to the right
         self.interview_btn = ctk.CTkButton(self, text="Interviews", width=90, command=self.on_open_interviews)
         self.interview_btn.pack(side="right", padx=5)
+        self.details_btn = ctk.CTkButton(self, text="Details", width=75, fg_color="#374151", hover_color="#4B5563", command=self.on_open_details)
+        self.details_btn.pack(side="right", padx=(5, 0))
 
         # Folder check and binding
         exists = os.path.exists(self.app_data['folder_path'])
@@ -123,6 +126,10 @@ class AppListItem(ctk.CTkFrame):
 
     def setup_context_menu(self):
         self.context_menu = Menu(self, tearoff=0)
+        self.context_menu.add_command(label="View Details / JD", command=self.on_open_details)
+        self.context_menu.add_command(label="Open Folder", command=self.on_open_folder)
+        self.context_menu.add_command(label="Interviews", command=self.on_open_interviews)
+        self.context_menu.add_separator()
         self.context_menu.add_command(label="Delete Record", command=self.on_delete_record)
         
         # Bind right click to the frame itself
@@ -151,6 +158,10 @@ class AppListItem(ctk.CTkFrame):
             open_folder(self.app_data['folder_path'])
         except Exception as e:
             messagebox.showerror("Error", f"Could not open folder: {e}")
+
+    def on_open_details(self):
+        from .app_details_dialog import AppDetailsDialog
+        dialog = AppDetailsDialog(self.winfo_toplevel(), self.app_data['id'], on_refresh_callback=self.on_refresh)
 
     def on_open_interviews(self):
         from .interview_manager import InterviewManager
@@ -395,6 +406,11 @@ class Dashboard(ctk.CTkFrame):
         # Scrollable area for items
         self.scrollable_frame = ctk.CTkScrollableFrame(self.list_frame)
         self.scrollable_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+
+        # Performance optimization: Debounce canvas fitting to eliminate resize lag
+        self._fit_job = None
+        self._orig_fit_frame = self.scrollable_frame._fit_frame_dimensions_to_canvas
+        self.scrollable_frame._parent_canvas.bind("<Configure>", self._debounced_fit_frame)
 
         # Bottom Bar: Actions
         self.action_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -694,9 +710,26 @@ class Dashboard(ctk.CTkFrame):
         if event.widget == self:
             self._cancel_timers()
 
+    def _debounced_fit_frame(self, event=None):
+        """Throttles internal scrollable canvas resize calculations to eliminate drag stutter."""
+        if self._fit_job:
+            self.after_cancel(self._fit_job)
+        self._fit_job = self.after(40, self._apply_fit_frame)
+
+    def _apply_fit_frame(self):
+        self._fit_job = None
+        try:
+            if self.winfo_exists() and hasattr(self, 'scrollable_frame') and self.scrollable_frame.winfo_exists():
+                self._orig_fit_frame(None)
+        except Exception:
+            pass
+
     def _cancel_timers(self):
         """Helper to cancel all active timers."""
         try:
+            if hasattr(self, '_fit_job') and self._fit_job:
+                self.after_cancel(self._fit_job)
+                self._fit_job = None
             if self._refresh_job:
                 self.after_cancel(self._refresh_job)
                 self._refresh_job = None

@@ -14,11 +14,14 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
     - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
+- **Headless CLI Interface (`cli.py`)**: A command-line interface tailored for automation and AI coding assistants (such as Antigravity). Features full CRUD operations (`add`, `list`, `get`, `set-status`, `set-jd`, `stats`) with `--json` output for headless agentic workflows.
+- **Application Details & Job Description Viewer**: Inspect, edit, copy to clipboard, and save job descriptions directly from the dashboard. Allows live status switching with immediate colour feedback and one-click access to application folders and interview notes.
 - **Advanced Analytics Dashboard**:
     - **AI-Powered Role Categorization**: Integrates with a local LLM (Ollama, `llama3.2` by default) to automatically organize highly varied or messy job titles (e.g., "Junior Web Developer", "SWE") into standardized, clean professional buckets (e.g., "Software Engineer"). 
         - Uses a persistent SQLite cache (`role_mappings` table) so API calls are instantaneous after the first run.
         - Includes an interactive **Role Classification Manager** UI to review AI decisions, manually override them, change the active LLM model, or clear the cache to force a re-evaluation of all data.
         - **Fail-Safe Circuit Breaker**: Automatically trips if the Ollama model is missing (HTTP 404) or offline, fallbacking instantly to title case for remaining roles in the session to prevent GUI hanging.
+        - **Skip AI Classification Controls**: Easily bypass LLM classification via the toolbar "Skip AI" checkbox, or click **"⏩ Skip AI for Remaining"** mid-progress to complete reports instantly without blocking.
     - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. OA vs. HR Call vs. Interviewed vs. Offer).
     - **Status Distribution**: Interactive pie charts with hover tooltips and a continuous date-padded timeline.
     - **Detailed Funnel Reporting**: Generate a comprehensive **Summary Report** with segmented tracking for **OA**, **HR Call**, and **Interview** stages.
@@ -33,7 +36,8 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **Asynchronous Processing**: Background threads execute AI operations or heavy data fetches so the GUI never hangs.
     - **Pagination & Direct Page Jump**: Navigates records in pages of 20 with an interactive page entry input allowing direct jump navigation (Enter/FocusOut triggers) alongside Prev/Next buttons. This keeps UI rendering instantaneous regardless of database size.
     - **Optimized Search & Filtering**: Filter by company or role using the debounced search bar (supports Enter key), quickly filter by time ("7 Days", "30 Days") using the built-in time dropdown, or filter by specific pipeline statuses ("OA", "Interviewed", etc.) with the status dropdown.
-    - **Database Indexing**: Optimized SQLite queries inside each workspace.
+    - **Debounced Window Resizing**: Eliminated CustomTkinter redraw lag across nested canvas widgets using a 40ms debounced layout update and frozen row propagation (`pack_propagate(False)`), achieving smooth 75 FPS window resizing.
+    - **Database Indexing & Safe Dict Mapping**: Optimized SQLite queries with native dictionary conversion, preventing row access errors across the app.
 - **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.
 - **Sleek UI**:
     - **Visual Status**: Color-coded buttons (Green for Offer, Purple for Interviewing, Red for Rejected).
@@ -98,13 +102,35 @@ On the first run, the **Setup Wizard** will appear. You will need to select:
 - **Sorting**: Click the **Company** or **Date** headers to toggle sort direction.
 - **Add Application**: Click `+ Add Application`. Select your preferred **CV Template** from the dropdown, enter company details, and paste the **Job Description**. JALM automatically appends an index if a duplicate role exists in the same company.
 - **Open Folder**: Simply **double-click** any row to jump to that application's local directory. (Red text indicates a missing folder).
+- **Application Details**: Click the **Details** button on any application row to inspect, edit, or copy the Job Description, change application status with instant colour feedback, open the folder in File Explorer, or view interview history.
 - **Interviews**: Click the `Interviews` button to log notes for each round. Notes are saved to the database and appended to an `interviews.txt` file in the folder.
 - **Batch Export**: Click **Export Results** to copy all CVs and JDs for your currently filtered list into a single folder. You can choose to export only CVs or only JDs using the popup dialog.
 - **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
 - **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
 
-- **Switching Workspaces**: Change your **Applications Root** in Settings to instantly load a different database and template set.
-- **Workspace Config (`jalm_config.json`)**: Stored *inside* each Applications Root folder. It manages CV/Cover Letter template paths specific to that workspace.
+### Headless CLI for AI Agents & Automation (`cli.py`)
+
+JALM provides a standalone headless CLI designed for terminal power users, automation scripts, and seamless interaction with AI coding assistants (such as Antigravity). All commands support `--json` output for automated consumption.
+
+```bash
+# Add an application headlessly (creates directory, clones templates, and records DB entry)
+python cli.py add --company "Acme Corp" --role "Software Engineer" --jd "Full job description text..."
+
+# List applications with optional filters and JSON output
+python cli.py list --time-filter "30 Days" --status "Interviewed" --json
+
+# View full details of a specific application
+python cli.py get 1 --json
+
+# Update pipeline status
+python cli.py set-status 1 "Interviewed"
+
+# View or update Job Description
+python cli.py set-jd 1 --jd "Updated requirements..."
+
+# Query workspace analytics and funnel stats
+python cli.py stats --json
+```
 
 ## 🏗️ System Architecture
 
@@ -187,8 +213,8 @@ python run_tests.py
 
 ### 2. Python Backend (`pytest`)
 - **Framework**: `pytest` with `pytest-mock` and `pytest-cov`.
-- **Target**: Core logic in `app/core/` (Database, Config, LLM, Sync).
-- **Current Coverage**: **~77%** (Focusing on backend business logic).
+- **Target**: Core logic in `app/core/` (Database, Config, LLM, Sync) and Headless CLI (`cli.py`).
+- **Current Coverage**: **~77%** across 21 automated unit and integration tests.
 - **Run Separately**:
   ```bash
   pytest --cov=app/core tests/

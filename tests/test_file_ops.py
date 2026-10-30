@@ -38,3 +38,9 @@ def test_create_and_scan_applications(mocker, tmp_path):
     assert apps[0]["company"] == "Google"
     assert apps[0]["jalm_id"] == 5
     assert apps[0]["has_interviews"] is True
+
+    # Test save_job_description_file
+    from app.core.file_ops import save_job_description_file
+    assert save_job_description_file(folder, "Updated JD content") is True
+    assert (Path(folder) / "job_description.txt").read_text(encoding="utf-8") == "Updated JD content"
+    assert save_job_description_file("/non/existent/path", "test") is False

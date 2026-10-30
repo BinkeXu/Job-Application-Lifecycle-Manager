@@ -57,7 +57,7 @@ public class AnalyticsService
 
         // 2. Count Active Interviews
         var interviewCmd = connection.CreateCommand();
-        interviewCmd.CommandText = "SELECT COUNT(*) FROM applications WHERE status = 'Interviewing'";
+        interviewCmd.CommandText = "SELECT COUNT(*) FROM applications WHERE status IN ('Interviewed', 'HR Call', 'OA', 'Interviewing')";
         long interviewing = (long)(interviewCmd.ExecuteScalar() ?? 0L);
 
         // 3. Count "Ghosted" Applications

@@ -64,6 +64,7 @@ def test_all_gui_components_headless(mocker):
     from app.gui.report_dialog import ReportDialog
     from app.gui.role_mapping_dialog import RoleMappingDialog
     from app.gui.calendar_dialog import CalendarDialog
+    from app.gui.app_details_dialog import AppDetailsDialog
     
     mock_master = DummyWidget()
     
@@ -129,6 +130,7 @@ def test_all_gui_components_headless(mocker):
     av.clear_dates()
     av.set_last_14_days()
     av.set_last_30_days()
+    av.skip_llm_var.set(True)
     av.open_summary_report()
     
     add = AddAppDialog(mock_master, lambda: None)
@@ -159,5 +161,15 @@ def test_all_gui_components_headless(mocker):
     rm.save_mapping()
     
     cal = CalendarDialog(mock_master, lambda x: None)
+    
+    mocker.patch("app.core.database.get_application_by_id", return_value={"id": 1, "company_name": "Apple", "role_name": "Dev", "folder_path": "", "status": "Applied", "created_at": "2026-01-01", "job_description": "Initial text"})
+    mocker.patch("app.core.database.get_interviews", return_value=[])
+    mocker.patch("app.core.database.update_application_status")
+    mocker.patch("app.core.database.update_application_job_description")
+    
+    details = AppDetailsDialog(mock_master, 1)
+    details.on_status_change("Interviewed")
+    details.on_copy_jd()
+    details.on_save_jd()
     
     assert True 

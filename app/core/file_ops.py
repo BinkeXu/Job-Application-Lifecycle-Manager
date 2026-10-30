@@ -62,6 +62,19 @@ def create_application_folder(company, role, job_description=None, cv_template_p
     creation_time = get_folder_creation_time(str(app_folder.absolute()))
     return str(app_folder.absolute()), creation_time
 
+def save_job_description_file(folder_path, job_description):
+    """Saves or updates job_description.txt in the application folder."""
+    if not folder_path or not os.path.exists(folder_path):
+        return False
+    jd_path = os.path.join(folder_path, "job_description.txt")
+    try:
+        with open(jd_path, "w", encoding="utf-8") as f:
+            f.write(job_description or "")
+        return True
+    except Exception as e:
+        print(f"Error saving job_description.txt: {e}")
+        return False
+
 def write_jalm_id(folder_path, app_id):
     """Writes the database application ID to a hidden .jalm_id file in the folder."""
     import os

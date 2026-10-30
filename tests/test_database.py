@@ -94,3 +94,43 @@ def test_analytics_and_status_functions():
     assert detailed["interviewed_count"] == 1
     assert len(detailed["by_company"]) >= 2
     assert len(detailed["by_role"]) >= 2
+
+def test_update_application_job_description():
+    from app.core.database import update_application_job_description, get_application_by_id
+    app_id = add_application("Stripe", "Backend Engineer", "/stripe/1", job_description="Initial JD")
+    app = get_application_by_id(app_id)
+    assert app["job_description"] == "Initial JD"
+    
+    update_application_job_description(app_id, "Updated JD with requirements")
+    app_updated = get_application_by_id(app_id)
+    assert app_updated["job_description"] == "Updated JD with requirements"
+
+def test_skip_llm_and_dict_returns():
+    from app.core.database import add_application, get_mapped_role, get_detailed_analytics, get_application_by_id, get_applications, get_interviews, add_interview
+    
+    # Test skip_llm bypasses any LLM call
+    role = get_mapped_role("senior rust ninja", skip_llm=True)
+    assert role == "Senior Rust Ninja"
+    
+    app_id = add_application("Tesla", "Autopilot Engineer", "/t/1")
+    
+    # Test get_detailed_analytics with skip_llm
+    detailed = get_detailed_analytics(skip_llm=True)
+    assert "by_role" in detailed
+    
+    # Test dict returns and .get() support
+    apps = get_applications()
+    assert len(apps) > 0
+    assert isinstance(apps[0], dict)
+    assert apps[0].get("company_name") == "Tesla"
+    
+    app = get_application_by_id(app_id)
+    assert isinstance(app, dict)
+    assert app.get("company_name") == "Tesla"
+    assert app.get("non_existent_key", "default") == "default"
+    
+    add_interview(app_id, "Test note")
+    interviews = get_interviews(app_id)
+    assert len(interviews) > 0
+    assert isinstance(interviews[0], dict)
+    assert interviews[0].get("notes") == "Test note"
