@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import messagebox
-from ..core.database import get_analytics_data, get_daily_status_counts
+from ..core.database import get_analytics_data, get_daily_status_counts, get_interviews_secured_count
 from .calendar_dialog import CalendarDialog
 
 class AnalyticsDashboard(ctk.CTkToplevel):
@@ -16,7 +16,7 @@ class AnalyticsDashboard(ctk.CTkToplevel):
     - Application timeline chart (Stacked Bar)
     - Manual tooltips for chart interactivity
     """
-    def __init__(self, parent):
+    def __init__(self, parent, start_date=None, end_date=None):
         super().__init__(parent)
         self.title("Application Analytics")
         self.geometry("1200x800")
@@ -25,6 +25,9 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         # self.iconbitmap("icon.ico")
 
         self.setup_ui()
+        if start_date is not None or end_date is not None:
+            self.start_date_var.set(start_date or "")
+            self.end_date_var.set(end_date or "")
         self.refresh_charts()
 
     def setup_ui(self):
@@ -73,6 +76,16 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         self.skip_llm_var = ctk.BooleanVar(value=False)
         self.skip_llm_chk = ctk.CTkCheckBox(self.toolbar, text="Skip AI", variable=self.skip_llm_var, width=80)
         self.skip_llm_chk.pack(side="right", padx=(0, 5))
+
+        # 1.5 KPI Metrics Summary Strip
+        self.kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.kpi_frame.pack(fill="x", padx=10, pady=(0, 5))
+        
+        self.kpi_total_lbl = self._create_kpi_card(self.kpi_frame, "Total Apps", "0", "#3B8ED0")
+        self.kpi_interviewed_lbl = self._create_kpi_card(self.kpi_frame, "Interviews Secured", "0", "#8B5CF6")
+        self.kpi_offers_lbl = self._create_kpi_card(self.kpi_frame, "Offers", "0", "#10B981")
+        self.kpi_offer_rate_lbl = self._create_kpi_card(self.kpi_frame, "Offer Rate", "0.0%", "#10B981")
+        self.kpi_interview_rate_lbl = self._create_kpi_card(self.kpi_frame, "Interview Rate", "0.0%", "#8B5CF6")
 
         # 2. Charts Area
         self.charts_frame = ctk.CTkFrame(self)
@@ -126,6 +139,15 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         
         # Set Default to Year-to-Date
         self.set_ytd(refresh=False)
+
+    def _create_kpi_card(self, parent, title, initial_val, color):
+        card = ctk.CTkFrame(parent, fg_color=color, corner_radius=8, height=52)
+        card.pack(side="left", fill="both", expand=True, padx=4)
+        card.pack_propagate(False)
+        ctk.CTkLabel(card, text=title, text_color="white", font=("Arial", 11)).pack(pady=(4, 0))
+        val_lbl = ctk.CTkLabel(card, text=initial_val, text_color="white", font=("Arial", 18, "bold"))
+        val_lbl.pack(pady=(0, 4))
+        return val_lbl
 
     def open_cal(self, variable):
         CalendarDialog(self, lambda date: variable.set(date), variable.get())
@@ -265,12 +287,27 @@ class AnalyticsDashboard(ctk.CTkToplevel):
         else:
             self.ax2.text(0.5, 0.5, "No Data", ha='center')
 
-        # Update Footer
+        # Update KPI Strip & Footer
         total = sum(status_counts.values()) if status_counts else 0
-        summary_text = f"Total: {total}"
+        offers = status_counts.get("Offer", 0) if status_counts else 0
+        interviewed = get_interviews_secured_count(start if start else None, end if end else None)
+        interview_rate = (interviewed / total * 100) if total > 0 else 0.0
+        offer_rate = (offers / total * 100) if total > 0 else 0.0
+
+        if hasattr(self, "kpi_total_lbl"):
+            self.kpi_total_lbl.configure(text=str(total))
+            self.kpi_interviewed_lbl.configure(text=str(interviewed))
+            self.kpi_offers_lbl.configure(text=str(offers))
+            self.kpi_offer_rate_lbl.configure(text=f"{offer_rate:.1f}%")
+            self.kpi_interview_rate_lbl.configure(text=f"{interview_rate:.1f}%")
+
+        summary_text = (
+            f"Total: {total} | Interviews: {interviewed} ({interview_rate:.1f}%) | "
+            f"Offers: {offers} ({offer_rate:.1f}%)"
+        )
         if status_counts:
-            for s, c in status_counts.items():
-                summary_text += f" | {s}: {c}"
+            breakdown = " | ".join([f"{s}: {c}" for s, c in status_counts.items()])
+            summary_text += f"   [{breakdown}]"
         self.footer_label.configure(text=summary_text)
 
         self.canvas.draw()

@@ -148,7 +148,7 @@ def add_application(company, role, folder_path, created_at=None, job_description
     finally:
         conn.close()
 
-def get_applications(search_query=None, sort_by="created_at", sort_order="DESC"):
+def get_applications(search_query=None, sort_by="created_at", sort_order="DESC", company=None, role=None, status=None):
     """Fetches all applications, optionally filtered and sorted."""
     conn = get_db_connection()
     try:
@@ -169,13 +169,35 @@ def get_applications(search_query=None, sort_by="created_at", sort_order="DESC")
         column = sort_map.get(sort_by, "created_at")
         
         query_str = 'SELECT * FROM applications'
+        conditions = []
         params = []
         
-        if search_query:
-            query_str += " WHERE company_name LIKE ? ESCAPE '\\' OR role_name LIKE ? ESCAPE '\\'"
-            escaped_search = search_query.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
-            search_val = f"%{escaped_search}%"
+        # General search query (case-insensitive across company OR role)
+        if search_query and search_query.strip():
+            escaped_search = search_query.strip().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            search_val = f"%{escaped_search.lower()}%"
+            conditions.append("(LOWER(company_name) LIKE ? ESCAPE '\\' OR LOWER(role_name) LIKE ? ESCAPE '\\')")
             params.extend([search_val, search_val])
+            
+        # Dedicated company filter (case-insensitive)
+        if company and company.strip():
+            escaped_comp = company.strip().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            conditions.append("LOWER(company_name) LIKE ? ESCAPE '\\'")
+            params.append(f"%{escaped_comp.lower()}%")
+            
+        # Dedicated role filter (case-insensitive)
+        if role and role.strip():
+            escaped_role = role.strip().replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            conditions.append("LOWER(role_name) LIKE ? ESCAPE '\\'")
+            params.append(f"%{escaped_role.lower()}%")
+            
+        # Status filter (case-insensitive)
+        if status and status.strip():
+            conditions.append("LOWER(status) = ?")
+            params.append(status.strip().lower())
+            
+        if conditions:
+            query_str += " WHERE " + " AND ".join(conditions)
         
         if column == "status":
             query_str += f""" ORDER BY 
@@ -439,6 +461,32 @@ def get_daily_status_counts(start_date=None, end_date=None):
     finally:
         conn.close()
 
+def get_interviews_secured_count(start_date=None, end_date=None):
+    """
+    Returns the count of distinct applications that reached the interview stage
+    (Status is 'Interviewed' or 'Offer', or has interview records logged).
+    """
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        base_where = ""
+        params = []
+        if start_date and end_date:
+            base_where = " WHERE date(a.created_at) BETWEEN ? AND ?"
+            params.extend([start_date, end_date])
+            
+        query_interviews = f"""
+            SELECT COUNT(DISTINCT a.id) 
+            FROM applications a
+            LEFT JOIN interviews i ON a.id = i.app_id
+            {base_where} {' AND ' if base_where else ' WHERE '} (a.status IN ('Interviewed', 'Offer') OR i.id IS NOT NULL)
+            AND a.status NOT IN ('OA', 'HR Call')
+        """
+        cursor.execute(query_interviews, params)
+        return cursor.fetchone()[0]
+    finally:
+        conn.close()
+
 def get_detailed_analytics(start_date=None, end_date=None, progress_callback=None, skip_llm=False, check_skip_fn=None):
     """
     Returns a detailed drill-down of application stats for the reporting view.
@@ -448,6 +496,7 @@ def get_detailed_analytics(start_date=None, end_date=None, progress_callback=Non
     - By Company (Top 10)
     - By Role (Top 10)
     - By Status
+    - Offer Rate and Interview Success Rate
     """
     conn = get_db_connection()
     try:
@@ -466,6 +515,10 @@ def get_detailed_analytics(start_date=None, end_date=None, progress_callback=Non
             "hr_call_count": 0,
             "interviewed_count": 0,
             "offers_count": 0,
+            "offer_rate": 0.0,
+            "interview_rate": 0.0,
+            "interview_success_rate": 0.0,
+            "offer_roles_list": [],
             "oa_roles_list": [],
             "hr_call_roles_list": [],
             "interview_roles_list": [],
@@ -518,6 +571,10 @@ def get_detailed_analytics(start_date=None, end_date=None, progress_callback=Non
         cursor.execute(query_roles_list, params)
         metrics["interview_roles_list"] = cursor.fetchall()
 
+        # 4d. List of Offer Roles
+        cursor.execute(f"SELECT company_name, role_name FROM applications{base_where} {' AND ' if base_where else ' WHERE '} status = 'Offer' ORDER BY company_name ASC", params)
+        metrics["offer_roles_list"] = cursor.fetchall()
+
         # 5. Frequency Breakdown by Company
         query_company = f"SELECT company_name, COUNT(*) as c FROM applications{base_where} GROUP BY company_name ORDER BY c DESC"
         cursor.execute(query_company, params)
@@ -544,6 +601,14 @@ def get_detailed_analytics(start_date=None, end_date=None, progress_callback=Non
         query_status = f"SELECT status, COUNT(*) as c FROM applications{base_where} GROUP BY status ORDER BY c DESC"
         cursor.execute(query_status, params)
         metrics["by_status"] = cursor.fetchall()
+
+        # 8. Conversion Rates
+        total = metrics["total_apps"]
+        offers = metrics["offers_count"]
+        interviewed = metrics["interviews_secured"]
+        metrics["interview_rate"] = round((interviewed / total * 100), 1) if total > 0 else 0.0
+        metrics["offer_rate"] = round((offers / total * 100), 1) if total > 0 else 0.0
+        metrics["interview_success_rate"] = round((offers / interviewed * 100), 1) if interviewed > 0 else 0.0
 
         return metrics
     finally:

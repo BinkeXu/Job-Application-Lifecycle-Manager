@@ -87,11 +87,23 @@ def test_analytics_and_status_functions():
     assert len(daily) > 0
     assert daily[0][1] == "Offer" or daily[0][1] == "Interviewed"
     
-    # Test Detailed Analytics
+    # Test Detailed Analytics & Metrics
+    from app.core.database import get_interviews_secured_count
+    assert get_interviews_secured_count() >= 2
+
     detailed = get_detailed_analytics(None, None)
     assert detailed["total_apps"] >= 2
     assert detailed["offers_count"] == 1
     assert detailed["interviewed_count"] == 1
+    assert "offer_rate" in detailed
+    assert "interview_rate" in detailed
+    assert "interview_success_rate" in detailed
+    assert detailed["offer_rate"] == 50.0
+    assert detailed["interview_rate"] == 100.0
+    assert detailed["interview_success_rate"] == 50.0
+    assert len(detailed["offer_roles_list"]) == 1
+    assert detailed["offer_roles_list"][0][0] == "Netflix"
+    assert detailed["offer_roles_list"][0][1] == "Engineer"
     assert len(detailed["by_company"]) >= 2
     assert len(detailed["by_role"]) >= 2
 
@@ -134,3 +146,44 @@ def test_skip_llm_and_dict_returns():
     assert len(interviews) > 0
     assert isinstance(interviews[0], dict)
     assert interviews[0].get("notes") == "Test note"
+
+def test_database_search_case_insensitivity_and_filters(isolated_db):
+    add_application("Toyota Motor", "Data Analyst", "/mock/toyota")
+    add_application("Honda", "Senior Data Analyst", "/mock/honda")
+    add_application("Toyota Finance", "Financial Analyst", "/mock/toyota_fin")
+
+    # 1. Test case-insensitivity with general search_query
+    lower_res = get_applications(search_query="toyota")
+    assert len(lower_res) == 2
+    upper_res = get_applications(search_query="TOYOTA")
+    assert len(upper_res) == 2
+    mixed_res = get_applications(search_query="ToYoTa")
+    assert len(mixed_res) == 2
+
+    # 2. Test dedicated company filter
+    toyota_comp = get_applications(company="toyota")
+    assert len(toyota_comp) == 2
+    honda_comp = get_applications(company="HONDA")
+    assert len(honda_comp) == 1
+    assert honda_comp[0]["company_name"] == "Honda"
+
+    # 3. Test dedicated role filter
+    data_roles = get_applications(role="data analyst")
+    assert len(data_roles) == 2
+    
+    # 4. Test combined company + role filter
+    combined = get_applications(company="toyota", role="data analyst")
+    assert len(combined) == 1
+    assert combined[0]["company_name"] == "Toyota Motor"
+
+def test_detailed_analytics_zero_division(isolated_db):
+    from app.core.database import get_detailed_analytics, get_interviews_secured_count
+    res = get_detailed_analytics()
+    assert res["total_apps"] == 0
+    assert res["interviews_secured"] == 0
+    assert res["offers_count"] == 0
+    assert res["offer_rate"] == 0.0
+    assert res["interview_rate"] == 0.0
+    assert res["interview_success_rate"] == 0.0
+    assert res["offer_roles_list"] == []
+    assert get_interviews_secured_count() == 0

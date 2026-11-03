@@ -19,6 +19,22 @@ class JALMApp(ctk.CTk):
         self.geometry("1300x800")
         self.minsize(1100, 600)  # Prevent the window from being resized too small
 
+        # Trailing Resize Controller: suspends heavy dashboard redraws during active window dragging
+        self._last_width = None
+        self._last_height = None
+        self._resize_timer = None
+        self._is_resizing = False
+        
+        self.resize_placeholder = ctk.CTkFrame(self, fg_color="transparent")
+        self.resize_label = ctk.CTkLabel(
+            self.resize_placeholder, 
+            text="Resizing...", 
+            font=("Arial", 16, "italic"), 
+            text_color="gray"
+        )
+        self.resize_label.place(relx=0.5, rely=0.5, anchor="center")
+        self.bind("<Configure>", self._on_window_configure)
+
         # 2. Database Preparation
         # This creates the necessary SQLite tables if they don't exist yet.
         init_db()
@@ -113,8 +129,51 @@ class JALMApp(ctk.CTk):
         self.dashboard = Dashboard(self)
         self.dashboard.pack(fill="both", expand=True)
 
+    def _on_window_configure(self, event):
+        """Suppresses heavy widget redraws while the window is actively dragged."""
+        if event.widget != self:
+            return
+        if not hasattr(self, 'dashboard') or not self.dashboard:
+            return
+        if self._last_width == event.width and self._last_height == event.height:
+            return
+
+        is_initial = (self._last_width is None and self._last_height is None)
+        self._last_width = event.width
+        self._last_height = event.height
+
+        if is_initial:
+            return
+
+        if not self._is_resizing:
+            self._is_resizing = True
+            self.dashboard.pack_forget()
+            self.resize_placeholder.pack(fill="both", expand=True)
+
+        if self._resize_timer:
+            self.after_cancel(self._resize_timer)
+        self._resize_timer = self.after(150, self._on_resize_complete)
+
+    def _on_resize_complete(self):
+        """Remounts and cleanly renders the dashboard once the drag settles."""
+        self._resize_timer = None
+        self._is_resizing = False
+        if hasattr(self, 'resize_placeholder') and self.resize_placeholder.winfo_exists():
+            self.resize_placeholder.pack_forget()
+        if hasattr(self, 'dashboard') and self.dashboard and self.dashboard.winfo_exists():
+            self.dashboard.pack(fill="both", expand=True)
+            if hasattr(self.dashboard, '_apply_fit_frame'):
+                self.dashboard._apply_fit_frame()
+
     def on_closing(self):
         """Handle window close event with proper cleanup."""
+        try:
+            if hasattr(self, '_resize_timer') and self._resize_timer:
+                self.after_cancel(self._resize_timer)
+                self._resize_timer = None
+        except Exception:
+            pass
+
         try:
             # IMPORTANT: Destroy all children first. This triggers the <Destroy> event
             # in the Dashboard, which cancels all active background timers.

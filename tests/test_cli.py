@@ -98,12 +98,40 @@ def test_cli_list_and_search(cli_env, capsys, monkeypatch):
     apps = json.loads(capsys.readouterr().out)
     assert len(apps) == 2
 
-    # Search filter
-    monkeypatch.setattr("sys.argv", ["jalm", "list", "-s", "Apple", "--json"])
+    # Search filter (case-insensitive)
+    monkeypatch.setattr("sys.argv", ["jalm", "list", "-s", "apple", "--json"])
     assert main() == 0
     apple_apps = json.loads(capsys.readouterr().out)
     assert len(apple_apps) == 1
     assert apple_apps[0]["company_name"] == "Apple"
+
+    # Specific company filter
+    monkeypatch.setattr("sys.argv", ["jalm", "list", "-c", "MICROSOFT", "--json"])
+    assert main() == 0
+    ms_apps = json.loads(capsys.readouterr().out)
+    assert len(ms_apps) == 1
+    assert ms_apps[0]["company_name"] == "Microsoft"
+
+    # Specific role filter
+    monkeypatch.setattr("sys.argv", ["jalm", "list", "-r", "cloud dev", "--json"])
+    assert main() == 0
+    cloud_apps = json.loads(capsys.readouterr().out)
+    assert len(cloud_apps) == 1
+    assert cloud_apps[0]["role_name"] == "Cloud Dev"
+
+    # Dedicated search subcommand
+    monkeypatch.setattr("sys.argv", ["jalm", "search", "apple", "--json"])
+    assert main() == 0
+    search_apps = json.loads(capsys.readouterr().out)
+    assert len(search_apps) == 1
+    assert search_apps[0]["company_name"] == "Apple"
+
+    # Search subcommand with company and role
+    monkeypatch.setattr("sys.argv", ["jalm", "search", "-c", "apple", "-r", "ios dev", "--json"])
+    assert main() == 0
+    combined_apps = json.loads(capsys.readouterr().out)
+    assert len(combined_apps) == 1
+    assert combined_apps[0]["company_name"] == "Apple"
 
 def test_cli_set_status_and_jd(cli_env, capsys, monkeypatch, tmp_path):
     # Add record

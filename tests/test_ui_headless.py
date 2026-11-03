@@ -58,6 +58,7 @@ def test_all_gui_components_headless(mocker):
     from app.gui.dashboard import Dashboard
     from app.gui.setup_wizard import SetupWizard
     from app.gui.analytics_view import AnalyticsDashboard
+    from app.gui.analytics_summary_dialog import AnalyticsSummaryDialog
     from app.gui.add_app_dialog import AddAppDialog
     from app.gui.export_dialog import ExportDialog
     from app.gui.interview_manager import InterviewManager
@@ -132,6 +133,14 @@ def test_all_gui_components_headless(mocker):
     av.set_last_30_days()
     av.skip_llm_var.set(True)
     av.open_summary_report()
+    
+    asd = AnalyticsSummaryDialog(mock_master)
+    asd.on_preset_selected("7 Days")
+    asd.on_preset_selected("14 Days")
+    asd.on_preset_selected("30 Days")
+    asd.on_preset_selected("YTD")
+    asd.on_preset_selected("All Time")
+    asd.open_full_report()
     
     add = AddAppDialog(mock_master, lambda: None)
     add.save_app()

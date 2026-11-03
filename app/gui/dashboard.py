@@ -6,14 +6,15 @@ from ..core.file_ops import create_application_folder, open_folder
 from tkinter import messagebox, Menu, filedialog
 
 class StatsCard(ctk.CTkFrame):
-    def __init__(self, parent, title, value):
+    def __init__(self, parent, title, value, color=None):
         super().__init__(parent)
         
-        self.title_label = ctk.CTkLabel(self, text=title, font=("Arial", 14))
-        self.title_label.pack(pady=(10, 0), padx=20)
+        self.title_label = ctk.CTkLabel(self, text=title, font=("Arial", 11))
+        self.title_label.pack(pady=(5, 0), padx=8)
         
-        self.value_label = ctk.CTkLabel(self, text=str(value), font=("Arial", 24, "bold"))
-        self.value_label.pack(pady=(0, 10), padx=20)
+        val_color = color if color else ("gray10", "gray90")
+        self.value_label = ctk.CTkLabel(self, text=str(value), font=("Arial", 18, "bold"), text_color=val_color)
+        self.value_label.pack(pady=(0, 5), padx=8)
 
     def update_value(self, new_value):
         self.value_label.configure(text=str(new_value))
@@ -256,8 +257,8 @@ class Dashboard(ctk.CTkFrame):
         
         # Search Bar
         self.search_var = ctk.StringVar()
-        self.search_entry = ctk.CTkEntry(self.top_frame, placeholder_text="Search company or role...", width=300, textvariable=self.search_var)
-        self.search_entry.pack(side="left", padx=(0, 10))
+        self.search_entry = ctk.CTkEntry(self.top_frame, placeholder_text="Search company or role...", width=180, textvariable=self.search_var)
+        self.search_entry.pack(side="left", padx=(0, 8))
         
         self.clear_search_btn = ctk.CTkButton(
             self.search_entry, 
@@ -274,12 +275,12 @@ class Dashboard(ctk.CTkFrame):
         # Bind Enter key to search
         self.search_entry.bind("<Return>", lambda e: self.refresh_list())
         
-        self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=80, command=self.refresh_list)
-        self.search_btn.pack(side="left", padx=(0, 20))
+        self.search_btn = ctk.CTkButton(self.top_frame, text="Search", width=65, command=self.refresh_list)
+        self.search_btn.pack(side="left", padx=(0, 10))
 
         # Filter Frame (Toggle + Time Filter)
         self.filter_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
-        self.filter_frame.pack(side="left", padx=(0, 20))
+        self.filter_frame.pack(side="left", padx=(0, 10))
 
         # Compatibility state variables (no longer shown in UI as virtual list handles everything)
         self.show_all_var = ctk.BooleanVar(value=True)
@@ -292,9 +293,9 @@ class Dashboard(ctk.CTkFrame):
             variable=self.time_filter_var, 
             command=lambda e: self.refresh_list(reset_scroll=True),
             height=30,
-            width=120
+            width=95
         )
-        self.time_filter_menu.pack(side="left", padx=(0, 10))
+        self.time_filter_menu.pack(side="left", padx=(0, 6))
 
         # Status Filter
         self.status_filter_var = ctk.StringVar(value="All Statuses")
@@ -304,33 +305,36 @@ class Dashboard(ctk.CTkFrame):
             variable=self.status_filter_var,
             command=lambda e: self.refresh_list(reset_scroll=True),
             height=30,
-            width=130
+            width=110
         )
         self.status_filter_menu.pack(side="left")
 
         # Reload Button
-        self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=120, command=self.on_reload)
-        self.reload_btn.pack(side="left")
+        self.reload_btn = ctk.CTkButton(self.top_frame, text="Scan & Reload", width=105, command=self.on_reload)
+        self.reload_btn.pack(side="left", padx=(8, 0))
 
         # Analytics Button
-        self.analytics_btn = ctk.CTkButton(self.top_frame, text="Analytics", width=100, command=self.on_open_analytics)
-        self.analytics_btn.pack(side="left", padx=(10, 0))
+        self.analytics_btn = ctk.CTkButton(self.top_frame, text="Analytics", width=85, command=self.on_open_analytics)
+        self.analytics_btn.pack(side="left", padx=(8, 0))
 
         # Hidden sort variable to maintain logic
         self.sort_var = ctk.StringVar(value="Date")
 
-        # Stats Area
+        # Stats Area - Compact horizontal footprint guarantees all KPIs are visible without window stretching
         self.stats_frame = ctk.CTkFrame(self.top_frame, fg_color="transparent")
         self.stats_frame.pack(side="right")
         
-        self.total_apps_card = StatsCard(self.stats_frame, "Total Applications", 0)
-        self.total_apps_card.pack(side="left", padx=10)
+        self.total_apps_card = StatsCard(self.stats_frame, "Total Apps", 0)
+        self.total_apps_card.pack(side="left", padx=4)
         
-        self.active_apps_card = StatsCard(self.stats_frame, "Active (OA+HR+Int)", 0)
-        self.active_apps_card.pack(side="left", padx=10)
+        self.active_apps_card = StatsCard(self.stats_frame, "Active (OA/HR/Int)", 0)
+        self.active_apps_card.pack(side="left", padx=4)
+
+        self.offers_card = StatsCard(self.stats_frame, "Offers", 0, color="#10B981")
+        self.offers_card.pack(side="left", padx=4)
 
         self.ghosted_apps_card = StatsCard(self.stats_frame, "Ghosted (30d)", 0)
-        self.ghosted_apps_card.pack(side="left", padx=10)
+        self.ghosted_apps_card.pack(side="left", padx=4)
 
         # Main List Area
         self.list_frame = ctk.CTkFrame(self)
@@ -439,6 +443,15 @@ class Dashboard(ctk.CTkFrame):
         self.total_apps_card.update_value(total)
         self.active_apps_card.update_value(interviewing)
         
+        # Update Offers Count KPI
+        try:
+            from ..core.database import get_applications
+            offers = get_applications(status="Offer")
+            if hasattr(self, 'offers_card'):
+                self.offers_card.update_value(len(offers))
+        except Exception:
+            pass
+        
         # The 'Ghosted' count is calculated by the .NET Background Service.
         # It saves it to a file called 'analytics.json'. We try to read it here.
         from ..core.config_mgr import get_active_root
@@ -515,7 +528,8 @@ class Dashboard(ctk.CTkFrame):
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
 
-        search_query = self.search_var.get()
+        raw_search = self.search_var.get()
+        search_query = raw_search.strip() if raw_search else None
         sort_by = self.sort_var.get()
         
         self._all_apps = get_applications(search_query, sort_by=sort_by, sort_order=self.sort_order)
@@ -611,13 +625,13 @@ class Dashboard(ctk.CTkFrame):
         dialog = AddAppDialog(self.winfo_toplevel(), self.save_new_application)
 
     def on_open_analytics(self):
-        from .analytics_view import AnalyticsDashboard
+        from .analytics_summary_dialog import AnalyticsSummaryDialog
         # Prevent multiple windows
-        if hasattr(self, 'analytics_window') and self.analytics_window.winfo_exists():
-            self.analytics_window.lift()
+        if hasattr(self, 'analytics_summary_window') and self.analytics_summary_window.winfo_exists():
+            self.analytics_summary_window.lift()
             return
-        self.analytics_window = AnalyticsDashboard(self)
-        self.analytics_window.grab_set() # Modal-like behavior
+        self.analytics_summary_window = AnalyticsSummaryDialog(self)
+        self.analytics_summary_window.grab_set() # Modal-like behavior
 
     def on_open_settings(self):
         from .setup_wizard import SetupWizard
@@ -711,10 +725,13 @@ class Dashboard(ctk.CTkFrame):
             self._cancel_timers()
 
     def _debounced_fit_frame(self, event=None):
-        """Throttles internal scrollable canvas resize calculations to eliminate drag stutter."""
+        """
+        Trailing debounce: suppresses widget re-rendering while the window is being dragged.
+        Only triggers content rendering after dragging stops (200ms quiet window).
+        """
         if self._fit_job:
             self.after_cancel(self._fit_job)
-        self._fit_job = self.after(40, self._apply_fit_frame)
+        self._fit_job = self.after(200, self._apply_fit_frame)
 
     def _apply_fit_frame(self):
         self._fit_job = None

@@ -149,10 +149,17 @@ def handle_add(args):
 
 def handle_list(args):
     init_db()
-    apps = get_applications(search_query=args.search)
+    search_q = getattr(args, "search", None) or getattr(args, "query", None)
+    company_q = getattr(args, "company", None)
+    role_q = getattr(args, "role", None)
+    status_q = getattr(args, "status", None)
 
-    if args.status:
-        apps = [a for a in apps if a.get("status") == args.status]
+    apps = get_applications(
+        search_query=search_q,
+        company=company_q,
+        role=role_q,
+        status=status_q
+    )
 
     if args.limit and args.limit > 0:
         apps = apps[:args.limit]
@@ -326,10 +333,21 @@ def build_parser():
 
     # Command: list
     p_list = subparsers.add_parser("list", help="List applications")
-    p_list.add_argument("-n", "--limit", type=int, default=20, help="Maximum items to return (default: 20)")
-    p_list.add_argument("-s", "--search", help="Search query (company or role)")
+    p_list.add_argument("-n", "--limit", type=int, default=20, help="Maximum items to return (default: 20, 0 for all)")
+    p_list.add_argument("-s", "--search", help="General search query (company or role)")
+    p_list.add_argument("-c", "--company", help="Search/filter specifically by company name")
+    p_list.add_argument("-r", "--role", help="Search/filter specifically by role title")
     p_list.add_argument("--status", help="Filter by status")
     p_list.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+
+    # Command: search
+    p_search = subparsers.add_parser("search", help="Search applications by company, role, or general query")
+    p_search.add_argument("query", nargs="?", default=None, help="General search term across company and role")
+    p_search.add_argument("-c", "--company", help="Search specifically by company name")
+    p_search.add_argument("-r", "--role", help="Search specifically by role title")
+    p_search.add_argument("--status", help="Filter by status")
+    p_search.add_argument("-n", "--limit", type=int, default=20, help="Maximum items to return (default: 20, 0 for all)")
+    p_search.add_argument("--json", action="store_true", help="Output machine-readable JSON")
 
     # Command: get
     p_get = subparsers.add_parser("get", help="Get application details by ID")
@@ -366,6 +384,7 @@ def main():
     commands = {
         "add": handle_add,
         "list": handle_list,
+        "search": handle_list,
         "get": handle_get,
         "set-status": handle_set_status,
         "set-jd": handle_set_jd,

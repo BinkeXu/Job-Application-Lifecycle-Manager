@@ -149,7 +149,7 @@ Calculated in the background to keep the UI snappy:
 - **Matplotlib Integration**: Uses `FigureCanvasTkAgg` to embed Matplotlib charts directly into the CustomTkinter window.
 - **Custom Tooltips**: Implements a manual event handler (`motion_notify_event`) to display data annotations when hovering over chart elements (wedges/bars), as `mplcursors` is not used.
 - **Calendar Dialog**: A custom `CTkToplevel` popup (`calendar_dialog.py`) providing a month-view date picker, replacing heavy external dependencies like `tkcalendar`.
-- **Advanced Reporting**: Features a **"View Report"** function that triggers a modal (`report_dialog.py`). This view calculates an application-to-interview **Success Rate** for any chosen date range.
+- **Instant Resizable Summary & Advanced Reporting**: Clicking **Analytics** launches a fast, resizable **Analytics Summary** modal (`analytics_summary_dialog.py`) with temporal presets, custom calendar filtering, high-level KPI cards, and unclipped funnel badges. Users can trigger the full reporting modal (`report_dialog.py`) which calculates an **Interview Rate** and **Offer Rate**, alongside an itemised **Offer Roles** breakdown table for any chosen date range.
 
 ### Batch Document Export (`batch_export.py`)
 Provides a robust utility for gathering documents for external use or audits:

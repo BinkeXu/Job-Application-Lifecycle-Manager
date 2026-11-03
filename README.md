@@ -14,7 +14,7 @@ JALM is a powerful desktop application designed to streamline and automate your 
     - **CSV Export**: Periodically generates a full `applications_export.csv` for use in Excel/Sheets.
     - **Persistent Job Data**: Saves Job Descriptions and Interview Notes as professional `.txt` files directly in each application folder (`job_description.txt` and `interviews.txt`).
     - **Auto-Refresh UI**: The Python dashboard intelligently reloads when it detects background database changes.
-- **Headless CLI Interface (`cli.py`)**: A command-line interface tailored for automation and AI coding assistants (such as Antigravity). Features full CRUD operations (`add`, `list`, `get`, `set-status`, `set-jd`, `stats`) with `--json` output for headless agentic workflows.
+- **Headless CLI Interface (`cli.py`)**: A command-line interface tailored for automation and AI coding assistants (such as Antigravity). Features full CRUD operations (`add`, `list`, `search`, `get`, `set-status`, `set-jd`, `stats`) with `--company`, `--role`, and `--json` output for headless agentic workflows.
 - **Application Details & Job Description Viewer**: Inspect, edit, copy to clipboard, and save job descriptions directly from the dashboard. Allows live status switching with immediate colour feedback and one-click access to application folders and interview notes.
 - **Advanced Analytics Dashboard**:
     - **AI-Powered Role Categorization**: Integrates with a local LLM (Ollama, `llama3.2` by default) to automatically organize highly varied or messy job titles (e.g., "Junior Web Developer", "SWE") into standardized, clean professional buckets (e.g., "Software Engineer"). 
@@ -24,8 +24,10 @@ JALM is a powerful desktop application designed to streamline and automate your 
         - **Skip AI Classification Controls**: Easily bypass LLM classification via the toolbar "Skip AI" checkbox, or click **"⏩ Skip AI for Remaining"** mid-progress to complete reports instantly without blocking.
     - **Visual Timeline**: Stacked bar charts showing application history (Applied vs. OA vs. HR Call vs. Interviewed vs. Offer).
     - **Status Distribution**: Interactive pie charts with hover tooltips and a continuous date-padded timeline.
-    - **Detailed Funnel Reporting**: Generate a comprehensive **Summary Report** with segmented tracking for **OA**, **HR Call**, and **Interview** stages.
-    - **Performance Metrics**: Calculates a professional **Success Rate** based on your Interview-to-Offer conversion performance.
+    - **Instant Resizable Analytics Summary**: Clicking the **Analytics** button launches a fast, resizable summary modal with built-in temporal filters (**All Time**, **7 Days**, **14 Days**, **30 Days**, **YTD**, and **Custom Calendar**). Displays key conversion metrics (**Interview Rate**, **Offer Rate**), overall application totals, and high-visibility pipeline funnel badges, with dedicated one-click actions to drill down into the **Full Detailed Report** or open **Visual Charts**.
+    - **Interactive KPI Strip & Dashboard**: Real-time header summary strip in the charts view displaying **Total Apps**, **Interviews Secured**, **Offers**, **Interview Rate**, and **Offer Rate**, dynamically updating with every date filter.
+    - **Detailed Funnel & Conversion Reporting**: Generate a comprehensive **Summary Report** with full funnel tracking across **OA**, **HR Call**, **Interview**, and **Offer** stages, plus an itemised **Offer Roles** breakdown table.
+    - **Dual Transparent Conversion Metrics**: Directly measures conversion against your total application volume: **Interview Rate** (Interviews / Total Applications) and **Offer Rate** (Offers / Total Applications).
     - **Quick Filters**: "Last 7 Days", "Last 14 Days", "Last 30 Days", and one-click **"Year-To-Date (YTD)"** shortcuts using a theme-aware custom Calendar picker.
 - **Batch Document Export**:
     - **Selective Backup**: Bulk-export your CVs, JDs, or both for your current search results.
@@ -35,11 +37,12 @@ JALM is a powerful desktop application designed to streamline and automate your 
 - **High Performance**:
     - **Asynchronous Processing**: Background threads execute AI operations or heavy data fetches so the GUI never hangs.
     - **Pagination & Direct Page Jump**: Navigates records in pages of 20 with an interactive page entry input allowing direct jump navigation (Enter/FocusOut triggers) alongside Prev/Next buttons. This keeps UI rendering instantaneous regardless of database size.
-    - **Optimized Search & Filtering**: Filter by company or role using the debounced search bar (supports Enter key), quickly filter by time ("7 Days", "30 Days") using the built-in time dropdown, or filter by specific pipeline statuses ("OA", "Interviewed", etc.) with the status dropdown.
-    - **Debounced Window Resizing**: Eliminated CustomTkinter redraw lag across nested canvas widgets using a 40ms debounced layout update and frozen row propagation (`pack_propagate(False)`), achieving smooth 75 FPS window resizing.
+    - **Optimized Case-Insensitive Search & Filtering**: Fast, case-insensitive substring searching across companies and roles powered by SQL `LOWER()` indexing and trimmed queries. Supports time dropdowns ("7 Days", "30 Days") and specific pipeline status filtering.
+    - **Trailing Resize Suspender (60+ FPS Window Dragging)**: Actively suspends the heavy dashboard layout during window resizing to eliminate GDI canvas redraw bottlenecks across 170+ nested widgets, smoothly restoring and snapping the layout into place once dragging stops (150ms quiet window).
     - **Database Indexing & Safe Dict Mapping**: Optimized SQLite queries with native dictionary conversion, preventing row access errors across the app.
 - **Interactive Sorting**: Click on **Company** or **Date** headers to toggle sort order (↑/↓) for quick organization.
 - **Sleek UI**:
+    - **Home Page KPI Toolbar**: Auto-scaling, responsive stat cards for **Total Apps**, **Active (OA/HR/Int)**, **Offers** (Emerald Green), and **Ghosted (30d)** that remain fully visible on any resolution without horizontal clipping.
     - **Visual Status**: Color-coded buttons (Green for Offer, Purple for Interviewing, Red for Rejected).
     - **Context Actions**: Right-click to delete records safely.
     - **Dark-Themed**: Modern CustomTkinter design.
@@ -118,6 +121,12 @@ python cli.py add --company "Acme Corp" --role "Software Engineer" --jd "Full jo
 
 # List applications with optional filters and JSON output
 python cli.py list --time-filter "30 Days" --status "Interviewed" --json
+
+# Search applications by general query, company, or role (case-insensitive)
+python cli.py search toyota
+python cli.py search --company toyota
+python cli.py search --role "data analyst"
+python cli.py search -c toyota -r "data analyst" --json
 
 # View full details of a specific application
 python cli.py get 1 --json
@@ -214,7 +223,7 @@ python run_tests.py
 ### 2. Python Backend (`pytest`)
 - **Framework**: `pytest` with `pytest-mock` and `pytest-cov`.
 - **Target**: Core logic in `app/core/` (Database, Config, LLM, Sync) and Headless CLI (`cli.py`).
-- **Current Coverage**: **~77%** across 21 automated unit and integration tests.
+- **Current Coverage**: **~78%** across 23 automated unit and integration tests.
 - **Run Separately**:
   ```bash
   pytest --cov=app/core tests/

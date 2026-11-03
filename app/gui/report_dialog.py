@@ -32,8 +32,11 @@ class ReportDialog(ctk.CTkToplevel):
         interviewed = self.metrics["interviews_secured"]
         offers = self.metrics["offers_count"]
         
-        # Success Rate is the percentage of applications that successfully progressed to an interview.
-        rate = (interviewed / total * 100) if total > 0 else 0
+        # Rates:
+        # Interview Rate: percentage of total applications resulting in an interview.
+        # Offer Rate: percentage of total applications resulting in an offer.
+        interview_rate = self.metrics.get("interview_rate", (interviewed / total * 100) if total > 0 else 0.0)
+        offer_rate = self.metrics.get("offer_rate", (offers / total * 100) if total > 0 else 0.0)
         
         # Split cards into two rows for better horizontal space and readability
         self.summary_row1 = ctk.CTkFrame(self.summary_frame, fg_color="transparent")
@@ -44,12 +47,14 @@ class ReportDialog(ctk.CTkToplevel):
         
         # Top Row: Overarching Metrics
         self._create_card(self.summary_row1, "Total Apps", total, "#3B8ED0")
-        self._create_card(self.summary_row1, "Success Rate", f"{rate:.1f}%", "#10B981")
+        self._create_card(self.summary_row1, "Interview Rate", f"{interview_rate:.1f}%", "#8B5CF6")
+        self._create_card(self.summary_row1, "Offer Rate", f"{offer_rate:.1f}%", "#10B981")
         
         # Bottom Row: Funnel Pipeline
         self._create_card(self.summary_row2, "OA", oa, "#0891B2")
         self._create_card(self.summary_row2, "HR Call", hr, "#DB2777")
         self._create_card(self.summary_row2, "Interviewed", interviewed, "#8B5CF6")
+        self._create_card(self.summary_row2, "Offer", offers, "#10B981")
         
         # 2. Detailed Breakdown Tables (Categorized Lists)
         self.tables_frame = ctk.CTkScrollableFrame(self)
@@ -70,6 +75,10 @@ class ReportDialog(ctk.CTkToplevel):
             # Formats [ (Company, Role) ] into [ ("Company - Role", "-") ]
             return [(f"{row[0]} - {row[1]}", "-") for row in roles_list]
         
+        if self.metrics.get("offer_roles_list"):
+            self._create_table(self.tables_frame, "Offer Roles", format_roles(self.metrics["offer_roles_list"]), row=row_idx, col=0, colspan=2, header_name="Application", title_color="#10B981")
+            row_idx += 1
+
         if self.metrics["interview_roles_list"]:
             self._create_table(self.tables_frame, "Interviewed Roles", format_roles(self.metrics["interview_roles_list"]), row=row_idx, col=0, colspan=2, header_name="Application", title_color="#8B5CF6")
             row_idx += 1
